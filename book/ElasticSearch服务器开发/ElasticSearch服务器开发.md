@@ -1,4 +1,4 @@
-# 第一章 Elastic集群入门
+# 第一章 Elasticsearch
 
 ## 1.1 全文检索
 
@@ -124,3 +124,757 @@ elasticsearch执行搜索请求
 
 
 ### 1.4.3 新建文档
+
+使用kibana 请求
+```http request
+PUT /blog/_doc/1
+{
+    "title": "New version of Elasticsearch released!",
+    "content": "Version 1.0 released today!",
+    "tags": [
+        "announce",
+        "elasticsearch",
+        "release"
+    ]
+}
+```
+返回结果
+```json
+{
+"_index": "blog",
+"_id": "1",
+"_version": 2,
+"result": "updated",
+"_shards": {
+"total": 2,
+"successful": 1,
+"failed": 0
+},
+"_seq_no": 1,
+"_primary_term": 1
+}
+```
+说明: _id 文档唯一标识
+_version 文档版本,递增
+
+
+使用 curl请求
+
+```
+curl -XPUT http://localhost:9200/blog/_doc/1 -d '{"title": "New version of Elasticsearch released!", "content": "Version 1.0 released today!", "tags": ["announce",
+"elasticsearch", "release"] }'
+```
+
+其中 1 是文档标识符,是我们指定的,也可以自动生成,其中PUT请求必须指定标识符,自动生成的使用POST请求,重复请求内容会生成多个文档
+
+eg:自动创建标识符
+```http request
+POST /blog/_doc
+{
+    "title": "New version of Elasticsearch released!",
+    "content": "Version 1.0 released today!",
+    "tags": [
+        "announce",
+        "elasticsearch",
+        "release"
+    ]
+}
+```
+
+返回结果
+```json
+{
+"_index": "blog",
+"_id": "SoXdL5gBB4N0GQW8y-Wx",
+"_version": 1,
+"result": "created",
+"_shards": {
+"total": 2,
+"successful": 1,
+"failed": 0
+},
+"_seq_no": 2,
+"_primary_term": 1
+}
+```
+
+### 1.4.4 检索文档
+```http request
+GET /blog/_doc/1
+```
+返回结果
+```json
+{
+  "_index": "blog",
+  "_id": "1",
+  "_version": 2,
+  "_seq_no": 1,
+  "_primary_term": 1,
+  "found": true,
+  "_source": {
+    "title": "New version of Elasticsearch released!",
+    "content": "Version 1.0 released today!",
+    "tags": [
+      "announce",
+      "elasticsearch",
+      "release"
+    ]
+  }
+}
+```
+会发现有新的字段_source 存储了原始的数据
+found : true 表示文档存在
+
+如果查找的文档不存在,结果如下
+```json
+{
+  "_index": "blog",
+  "_id": "2",
+  "found": false
+}
+```
+
+### 1.4.5 更新文档
+更新索引内部的文档比较复杂.首先Elasticsearch必须先获取文档,从_source属性获取数据,删除旧的文件,更改_sources属性,然后把它作为新的文档来索引.因为信息
+一旦在Lucene的倒排索引中存储就不能修改.Elasticsearch通过一个带_update参数的脚本来实现.这样就可以做比较简单的修改字段
+
+修改content字
+```http request
+POST /blog/_update/1
+{
+"script": "ctx._source.content = \"new content\""
+}
+```
+返回结果
+```json
+{
+  "_index": "blog",
+  "_id": "1",
+  "_version": 3,
+  "result": "updated",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  },
+  "_seq_no": 3,
+  "_primary_term": 1
+}
+```
+
+修改的时候不需要发送整个文档,但是当我们使用更新功能的时候需要使用_source字段.
+
+当我们更新文档的时候,可以设置一个值用来处理文档中没有该字段的情况.例如,想增加文档中的counter字段，而该字段不存在，可以使用upsert来提供字段的默认值.
+```http request
+POST /blog/_update/1
+{
+  "script": {
+    "source": "ctx._source.counter = (ctx._source.counter != null ? ctx._source.counter + 1 : 1)"
+  },
+  "upsert": {
+    "counter": 0
+  }
+}
+```
+
+注意如果不判空的时候会报错,upsert 是处理 文档不存在的时候
+
+### 1.4.6 删除文档
+删除文档
+```http request
+DELETE /blog/_doc/1
+```
+返回结果
+```json
+{
+  "_index": "blog",
+  "_id": "1",
+  "_version": 3,
+  "result": "deleted",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  },
+  "_seq_no": 9,
+  "_primary_term": 1
+}
+```
+
+### 1.4.7 版本控制
+"_version" : 1 这个字段的值是版本号,这个版本号是递增的.默认情况下,在Elasticsearch中添加、修改或者删除的时候都会递增版本号.除了能够记录更该的次数,
+还能够实现乐观锁(optimistic locking).
+
+例如:
+```http request
+DELETE /blog/_doc/1?version=1&version_type=external
+```
+说明: version 参数指定了当前文档的版本号,如果文档的版本号和参数指定的版本号不一致,则返回409错误.
+_version_type_ 参数指定了版本号类型,可选值有external,internal,external_gt,external_gte. 默认值是internal[内部]
+
+返回结果
+```json
+{
+"error": {
+"root_cause": [
+{
+"type": "version_conflict_engine_exception",
+"reason": "[1]: version conflict, current version [2] is higher or equal to the one provided [1]",
+"index_uuid": "zh9XTX6hTLqvrl2ZG-CKow",
+"shard": "0",
+"index": "blog"
+}
+],
+"type": "version_conflict_engine_exception",
+"reason": "[1]: version conflict, current version [2] is higher or equal to the one provided [1]",
+"index_uuid": "zh9XTX6hTLqvrl2ZG-CKow",
+"shard": "0",
+"index": "blog"
+},
+"status": 409
+}
+```
+
+
+其他说明:
+如果使用下面的
+```http request
+DELETE /blog/_doc/1?version=1
+```
+会报错
+```json
+{
+"error": {
+"root_cause": [
+{
+"type": "action_request_validation_exception",
+"reason": "Validation Failed: 1: internal versioning can not be used for optimistic concurrency control. Please use if_seq_no and if_primary_term instead;"
+}
+],
+"type": "action_request_validation_exception",
+"reason": "Validation Failed: 1: internal versioning can not be used for optimistic concurrency control. Please use if_seq_no and if_primary_term instead;"
+},
+"status": 400
+}
+```
+但是在7.x之后的版本使用if_seq_no 和 if_primary_term 实现乐观并发控制
+
+如果需要创建的时候制定版本号
+```http request
+PUT /blog/_doc/1?version=999&version_type=external
+{
+"title": "New version of Elasticsearch released!",
+"content": "Version 1.0 released today!",
+"tags": [
+"announce",
+"elasticsearch",
+"release"
+]
+}
+```
+> 即使文档被移除后,短时间内Elasticsearch仍然可以检查版本号,Elasticsearch保留了删除文档的版本信息.默认情况下,这个信息在60s可用.可以通过修改
+> index.gc_deletes配置修改这个值
+
+## 1.5 使用URI请求查询检索
+
+### 1.5.1 示例数据
+
+```http request
+POST /books/_doc/1
+{
+  "category": "es",
+  "title": "Elasticsearch Server",
+  "published": 2023
+}
+
+
+POST /books/_doc/2
+{
+  "category": "es",
+  "title": "Mastering Elasticsearch",
+  "published": 2023
+}
+
+POST /books/_doc/3
+{
+  "category": "solr",
+  "title": "Mastering Elasticsearch",
+  "published": 2025
+}
+```
+
+> ES从8.x彻底取消type,可以使用字段进行区分,或者使用不同的索引,可以减少mapping冲突
+
+查询索引的mapping映射
+```http request
+GET /books/_mapping?pretty
+```
+返回结果
+
+```json
+{
+  "books": {
+    "mappings": {
+      "properties": {
+        "category": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "published": {
+          "type": "long"
+        },
+        "title": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### 1.5.2 URI 请求
+Elasticsearch的所有查询都会发送到_search端点.可以搜索单个或多个索引
+```http request
+GET /books/_search?pretty
+```
+
+也可以对多个索引执行一个查询
+
+```http request
+GET /books,blog/_search?pretty
+```
+也可以使用通配符来进行索引名称匹配
+```http request
+GET /b*/_search?pretty
+```
+也可以不指定索引,匹配所有索引
+```http request
+GET /_search?pretty
+```
+
+1. Elasticsearch查询响应
+假如在books索引中title字段中包含elasticsearch一词中的所有文档
+```http request
+GET /books/_search?pretty&q=title:elasticsearch
+```
+
+返回结果
+```json
+{
+  "took": 15,
+  "timed_out": false,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 3,
+      "relation": "eq"
+    },
+    "max_score": 0.13353139,
+    "hits": [
+      {
+        "_index": "books",
+        "_id": "1",
+        "_score": 0.13353139,
+        "_source": {
+          "category": "es",
+          "title": "Elasticsearch Server",
+          "published": 2023
+        }
+      },
+      {
+        "_index": "books",
+        "_id": "2",
+        "_score": 0.13353139,
+        "_source": {
+          "category": "es",
+          "title": "Mastering Elasticsearch",
+          "published": 2023
+        }
+      },
+      {
+        "_index": "books",
+        "_id": "3",
+        "_score": 0.13353139,
+        "_source": {
+          "category": "solr",
+          "title": "Mastering Elasticsearch",
+          "published": 2025
+        }
+      }
+    ]
+  }
+}
+```
+
+响应的第一部分展示了请求花费多少时间(took属性,单位是毫秒),有没有超时属性(timed_out属性),执行请求时查询的分片信息,包括查询的分片的数量(_shards对象的
+total属性)、成功返回结果的分片数量(_shards对象的successful属性)、失败的分片数量(_shards.failed属性)、忽略的分片数量(_shards.skipped属性,
+执行 跨索引或者跨分片查询时，有多少个 shard 被跳过（未参与搜索）)。
+
+可以使用timeout参数来指定查询的最大执行时间,失败的分片可能是分片出问题或者执行搜索时不可用.
+
+hits里面包含我们使用的结果.查询返回的文档总数(total属性)和计算所得订单最高分(max_score属性),还有包含返回文档的hits数组.每个返回的文档包含索引(
+_index属性)、标识符(_id属性)、分数(_score属性)以及_source字段.
+
+2. 查询分析
+上面的例子中,使用"Elasticsearch"建立索引,然后使用"elasticsearch"来执行查询,虽然大小写不同,但是还能找到相关文档,原因是查询分析.在建立索引时,底层的
+Lucene库会根据Elasticsearch配置文件分析文档并建立索引数据.默认情况下,Elasticsearch会告诉Lucene对基于字符串的数据和数字都做索引和分析.查询结果也
+一样,URI的查询会映射到query_string查询,Elasticsearch会分析它.
+
+使用索引分析API(indices analyze API)可以查看分析过程是什么样的,建立索引时发生了什么,在查询阶段又发生了什么.
+```http request
+GET /books/_analyze
+{
+  "text": "Elasticsearch Server"
+}
+```
+返回结果
+```json
+{
+  "tokens": [
+    {
+      "token": "elasticsearch",
+      "start_offset": 0,
+      "end_offset": 13,
+      "type": "<ALPHANUM>",
+      "position": 0
+    },
+    {
+      "token": "server",
+      "start_offset": 14,
+      "end_offset": 20,
+      "type": "<ALPHANUM>",
+      "position": 1
+    }
+  ]
+}
+```
+
+可以看到Elasticsearch把文本划分为两个词,第一个标记值(token value)为elasticsearch,第二个标记值为server.
+
+下面看看查询文本是如何被分析的
+```http request
+GET /books/_analyze?pretty
+{
+  "text": "elasticsearch"
+}
+```
+返回结果
+```json
+{
+  "tokens": [
+    {
+      "token": "elasticsearch",
+      "start_offset": 0,
+      "end_offset": 13,
+      "type": "<ALPHANUM>",
+      "position": 0
+    }
+  ]
+}
+```
+可以看到,这个词和传到查询的原始值是一样的. 分析之后的索引词和分析之后查询词是一样的,因此该文档与查询匹配并作为结果返回.
+
+3. URI查询中的字符参数
+
+查询参数间使用&作为分割符
+- 查询 参数q用来指定希望文件匹配的查询条件,eg q=title:elasticsearch
+- 默认查询字段 参数df用来指定默认查询字段,默认是_all字段,eg df=title
+- 分析器 参数analyzer用来指定查询分析器名称.默认情况下,索引阶段对字段内容做分析的分析器将用来分析我们的查询
+- 默认操作符 参数default_operator用来指定查询中的默认操作符可以是OR或AND,用来指定查询的默认布尔运算符.默认是OR,只要有一个条件匹配就返回文档.
+- 查询解释 如果将explain参数设置为true,Elasticsearch会返回查询的详细解释信息,如文档是在哪个分片上获取的、计算得分的详细信息.但是不要在正常的查询上设置explain会影响性能
+
+```http request
+GET /books/_search?pretty&q=title:elasticsearch&df=title&analyzer=standard&default_operator=AND&explain=true
+```
+返回结果
+```json
+{
+  "took": 7,
+  "timed_out": false,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 3,
+      "relation": "eq"
+    },
+    "max_score": 0.13353139,
+    "hits": [
+      {
+        "_shard": "[books][0]",
+        "_node": "_TQP_g3ORGu4qozsEApJbw",
+        "_index": "books",
+        "_id": "1",
+        "_score": 0.13353139,
+        "_source": {
+          "category": "es",
+          "title": "Elasticsearch Server",
+          "published": 2023
+        },
+        "_explanation": {
+          "value": 0.13353139,
+          "description": "weight(title:elasticsearch in 0) [PerFieldSimilarity], result of:",
+          "details": [
+            {
+              "value": 0.13353139,
+              "description": "score(freq=1.0), computed as boost * idf * tf from:",
+              "details": [
+                {
+                  "value": 2.2,
+                  "description": "boost",
+                  "details": []
+                },
+                {
+                  "value": 0.13353139,
+                  "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                  "details": [
+                    {
+                      "value": 3,
+                      "description": "n, number of documents containing term",
+                      "details": []
+                    },
+                    {
+                      "value": 3,
+                      "description": "N, total number of documents with field",
+                      "details": []
+                    }
+                  ]
+                },
+                {
+                  "value": 0.45454544,
+                  "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                  "details": [
+                    {
+                      "value": 1,
+                      "description": "freq, occurrences of term within document",
+                      "details": []
+                    },
+                    {
+                      "value": 1.2,
+                      "description": "k1, term saturation parameter",
+                      "details": []
+                    },
+                    {
+                      "value": 0.75,
+                      "description": "b, length normalization parameter",
+                      "details": []
+                    },
+                    {
+                      "value": 2,
+                      "description": "dl, length of field",
+                      "details": []
+                    },
+                    {
+                      "value": 2,
+                      "description": "avgdl, average length of field",
+                      "details": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "_shard": "[books][0]",
+        "_node": "_TQP_g3ORGu4qozsEApJbw",
+        "_index": "books",
+        "_id": "2",
+        "_score": 0.13353139,
+        "_source": {
+          "category": "es",
+          "title": "Mastering Elasticsearch",
+          "published": 2023
+        },
+        "_explanation": {
+          "value": 0.13353139,
+          "description": "weight(title:elasticsearch in 0) [PerFieldSimilarity], result of:",
+          "details": [
+            {
+              "value": 0.13353139,
+              "description": "score(freq=1.0), computed as boost * idf * tf from:",
+              "details": [
+                {
+                  "value": 2.2,
+                  "description": "boost",
+                  "details": []
+                },
+                {
+                  "value": 0.13353139,
+                  "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                  "details": [
+                    {
+                      "value": 3,
+                      "description": "n, number of documents containing term",
+                      "details": []
+                    },
+                    {
+                      "value": 3,
+                      "description": "N, total number of documents with field",
+                      "details": []
+                    }
+                  ]
+                },
+                {
+                  "value": 0.45454544,
+                  "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                  "details": [
+                    {
+                      "value": 1,
+                      "description": "freq, occurrences of term within document",
+                      "details": []
+                    },
+                    {
+                      "value": 1.2,
+                      "description": "k1, term saturation parameter",
+                      "details": []
+                    },
+                    {
+                      "value": 0.75,
+                      "description": "b, length normalization parameter",
+                      "details": []
+                    },
+                    {
+                      "value": 2,
+                      "description": "dl, length of field",
+                      "details": []
+                    },
+                    {
+                      "value": 2,
+                      "description": "avgdl, average length of field",
+                      "details": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "_shard": "[books][0]",
+        "_node": "_TQP_g3ORGu4qozsEApJbw",
+        "_index": "books",
+        "_id": "3",
+        "_score": 0.13353139,
+        "_source": {
+          "category": "solr",
+          "title": "Mastering Elasticsearch",
+          "published": 2025
+        },
+        "_explanation": {
+          "value": 0.13353139,
+          "description": "weight(title:elasticsearch in 0) [PerFieldSimilarity], result of:",
+          "details": [
+            {
+              "value": 0.13353139,
+              "description": "score(freq=1.0), computed as boost * idf * tf from:",
+              "details": [
+                {
+                  "value": 2.2,
+                  "description": "boost",
+                  "details": []
+                },
+                {
+                  "value": 0.13353139,
+                  "description": "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
+                  "details": [
+                    {
+                      "value": 3,
+                      "description": "n, number of documents containing term",
+                      "details": []
+                    },
+                    {
+                      "value": 3,
+                      "description": "N, total number of documents with field",
+                      "details": []
+                    }
+                  ]
+                },
+                {
+                  "value": 0.45454544,
+                  "description": "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
+                  "details": [
+                    {
+                      "value": 1,
+                      "description": "freq, occurrences of term within document",
+                      "details": []
+                    },
+                    {
+                      "value": 1.2,
+                      "description": "k1, term saturation parameter",
+                      "details": []
+                    },
+                    {
+                      "value": 0.75,
+                      "description": "b, length normalization parameter",
+                      "details": []
+                    },
+                    {
+                      "value": 2,
+                      "description": "dl, length of field",
+                      "details": []
+                    },
+                    {
+                      "value": 2,
+                      "description": "avgdl, average length of field",
+                      "details": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+- 返回字段 默认情况下,返回每个文档中, Elasticsearch将包含索引名称、文档标识符、得分和_source字段. 可以通过添加field参数并指定一个逗号分割的字段名称列表.
+这些字段将在存储字段或内部的_source字段中检索.默认参数值是_source.举例: field=title
+- 结果排序 通过sort参数,可以自定义排序. 默认是按照得分降序排列.例如: sort=published:desc,如果自定义排序,Elasticsearch将省略计算文档的_score字段.
+如果既要排序,又要计算文档的_score字段,可以通过设置track_scores参数为true.
+- 搜索超时 默认情况下没有查询超时.按时我们可以通过timeout参数设置查询超时.例如: timeout=5s
+- 查询结果窗口 通过from和size参数,可以指定查询结果窗口.例如: from=0,size=10,可以完成分页功能
+- 搜索类型 通过search_type参数,可以指定搜索类型.默认是query_then_fetch[查询后获取]. dfs_query_then_fetch.其他的基本弃用了.
+
+| 搜索类型 | 	是否执行 DFS（全局词频统计） | 排序准确性 | 描述                  |
+| --- |-------------------|-------|---------------------|
+| query_then_fetch | 否                 | 中     | 默认搜索类型,默认高效搜索,先执行查询,再获取结果 |
+| dfs_query_then_fetch | 是                 | 高     | 对 score 极度敏感时用（如广告推荐） |
+
+- 小写扩展词 一些查询使用的查询扩展,比如前缀查询(prefix  query),可以使用lowercase_expanded_terms属性来定义扩展词是否应该转换为小写.默认是true.
+- 分析通配符和前缀 默认情况下,通配符查询和前缀查询不会被分析.如果要更改,可以吧analyze_wildcard属性设置为true.
+
+### 1.5.3 Lucene查询语法
+
+完整语法地址:https://lucene.apache.org/core/10_2_2/queryparser/org/apache/lucene/queryparser/classic/package-summary.html
+
+传入Lucene的查询被查询解析器分为词(term)和操作符(operator).词可以有两种类型:单词和短语.eg: title:book 短语 title:"elasticsearch book"
+Lucene查询语法支持操作符. 操作符+告诉Lucene给定部分必须在文档中匹配.操作符-相反,这一部分不能出现在文档中.即没有+也没有-的话是可以匹配、但是非强制性
+的查询.所以想找titl字段包含book但是description字段不包含cat的文档可以 +title:book -description:cat. 也可以使用括号来组合多个词 title:(crime punishment)
+还可以使用^操作符接上一个值来助推(boost)一个词,如 title:book^4 
+
+# 2 索引
