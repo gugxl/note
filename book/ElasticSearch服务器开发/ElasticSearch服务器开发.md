@@ -112,15 +112,15 @@ elasticsearch执行搜索请求
 
 目录作用说明
 
-｜ 目录 ｜ 描述 ｜
-｜ ---- ｜ ----- ｜
-｜ bin ｜ 运行elasticsearch实例和插件管理所需要的脚本 ｜
-｜ config ｜ 配置目录 ｜ 
-｜ lib ｜ Elasticsearch 使用的库 ｜
-｜ data ｜ 数据存储目录 ｜
-｜ logs ｜ 事件和错误记录的目录 ｜
-｜ plugins ｜ 存储安装插件的目录 ｜
-｜ work  ｜ 临时文件路径 ｜
+| 目录 | 描述 |
+| ---- | ----- |
+| bin | 运行elasticsearch实例和插件管理所需要的脚本 |
+| config | 配置目录 |
+| lib | Elasticsearch 使用的库 |
+| data | 数据存储目录 |
+| logs | 事件和错误记录的目录 |
+| plugins | 存储安装插件的目录 |
+| work  | 临时文件路径 |
 
 
 ### 1.4.3 新建文档
