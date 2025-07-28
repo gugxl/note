@@ -12,17 +12,13 @@
 
 索引额外文件包含了词向量(term vector)、文档值(doc value).
 
-每个索引分为多个"写一次、读多次(write once and read many time)"的段(segment).建立索引时,一个段写入磁盘后就不能再更新.因此被删除的文档信息存储在
-一个单独的文件中, 单该段自身不能被更新.
+每个索引分为多个"写一次、读多次(write once and read many time)"的段(segment).建立索引时,一个段写入磁盘后就不能再更新.因此被删除的文档信息存储在一个单独的文件中, 单该段自身不能被更新.
 
-然而多个段可以通过**段合并(segment merge)**合并在一起.当强制段合并或者Lucene决定合并时,这些小段就会由Lucene合并成更大的一些段.合并需要I/O.
-在合并时,不在需要的信息会被删除(例如,被删除的文档).除此之外,检索大段必检索存在相同数据的多个小段的速度更快.在一般情况下,搜索只需要将查询词与那些
-编入索引的词相匹配.通过多个小段寻找和合并结果,显然会比让一个大段直接提供结果慢的多.
+然而多个段可以通过**段合并(segment merge)**合并在一起.当强制段合并或者Lucene决定合并时,这些小段就会由Lucene合并成更大的一些段.合并需要I/O. 在合并时,不在需要的信息会被删除(例如,被删除的文档).除此之外,检索大段必检索存在相同数据的多个小段的速度更快.在一般情况下,搜索只需要将查询词与那些编入索引的词相匹配.通过多个小段寻找和合并结果,显然会比让一个大段直接提供结果慢的多.
 
 ### 1.1.2 输入数据分析
 
-输入的文档和查询的文本都要转换成可以被搜索的词.这个转换过程称为**分析**.这个过程我们一般需求会要经过语言分析处理,使得car和cars在索引中被视为是一个,
-另外以往一些字段只用空格或者小写进行划分.
+输入的文档和查询的文本都要转换成可以被搜索的词.这个转换过程称为**分析**.这个过程我们一般需求会要经过语言分析处理,使得car和cars在索引中被视为是一个, 另外以往一些字段只用空格或者小写进行划分.
 
 分析的工作有**分析器**完成,它由零到多个字符过滤器(Char Filters)加上一个分词器(Tokenizer)和零到多个标记过滤器(Token Filters)组成.
 
@@ -38,23 +34,19 @@
 #### 索引和查询
 建立索引时,Lucene会使用你选择的分析器来处理你的文档内容.不同的字段可以使用不同的分析器,所以文档的名称字段可以和汇总字段做不通的分析.也可以不分析字段.
 
-查询时,查询将被分析.但是也可以选择不分析.例如前缀和词查询不被分析,匹配查询被分析.可以在被分析和查询和不被分析查询两者中选择非常有用.例如我么查询LightRed
-这个词,标准分析器分析这个查询后,会去查询light和red,如果我们使用不经分析的查询类型,则会明确的查询LightRed这个词.
+查询时,查询将被分析.但是也可以选择不分析.例如前缀和词查询不被分析,匹配查询被分析.可以在被分析和查询和不被分析查询两者中选择非常有用.例如我么查询LightRed这个词,标准分析器分析这个查询后,会去查询light和red,如果我们使用不经分析的查询类型,则会明确的查询LightRed这个词.
 
-在索引和查询分析中,索引应该和查询次匹配.如果不匹配,Lucene不会返回所需的文档.例如在建立索引的时候使用了词干提取和小写,那你应该保证查询中的词也必须是词干和小写、
-否则,Lucene将不会返回任何结果..重要的是在索引和查询分析时,对所用的标记过滤器保持相同的顺序,这样分析出来的词也是一样的.
+在索引和查询分析中,索引应该和查询次匹配.如果不匹配,Lucene不会返回所需的文档.例如在建立索引的时候使用了词干提取和小写,那你应该保证查询中的词也必须是词干和小写、 否则,Lucene将不会返回任何结果..重要的是在索引和查询分析时,对所用的标记过滤器保持相同的顺序,这样分析出来的词也是一样的.
 
 ### 1.1.3 评分和查询相关性
-评分(scoring),是根据文档和查询的匹配度用计分工时计算的结果.默认情况下Lucene使用TF/IDF(term frequency/inverse document frequency, 词频/逆向文档频率)
-评分机制.也会有其他评分办法. 评分越高,文档越相关.
+评分(scoring),是根据文档和查询的匹配度用计分工时计算的结果.默认情况下Lucene使用TF/IDF(term frequency/inverse document frequency, 词频/逆向文档频率)评分机制.也会有其他评分办法. 评分越高,文档越相关.
 
 ## 1.2 ElasticSearch基础
 
 ### 1.2.1 数据架构的主要概念
 
 #### 1. 索引
-索引(index)是Elasticsearch对逻辑数据的逻辑存储,所以他可以分为更小的部分.可以把索引 看成关系数据库中的表.但是索引中的结果是为了快速有效的全文索引准备的,
-它不存储原始值[注意:原书描述是错误的].(默认_source是开启的,存储的是原始值,但是可以关闭)
+索引(index)是Elasticsearch对逻辑数据的逻辑存储,所以他可以分为更小的部分.可以把索引 看成关系数据库中的表.但是索引中的结果是为了快速有效的全文索引准备的, 它不存储原始值[注意:原书描述是错误的].(默认_source是开启的,存储的是原始值,但是可以关闭)
 
 > 关闭_source影响
 > 1. 不能使用_reindex写入新索引 
@@ -83,29 +75,21 @@
 Elasticsearch可以作为单个节点运行，也可以运行多个相互协作的服务器上。这些服务器称为集群（cluster），形成集群的每个服务器称为节点（node）
 
 2. 分片
-当有大量文档的时候，由于内存的限制、硬盘的能力、处理能力的不足、无法足够快的响应客户端请求。这种情况下，数据可以分为比较小的分片（shard）的部分
-（每个分片都是一个独立的 apache Lucene索引）。每个分片可以存放在不同的服务器上，因此数据可以在集群中的节点传播。当查询的数据分布在不同的节点上，
-Elasticsearch会把查询发送给每个相关的分片，并将结果合并到一起，而应用程序不知道分片的存在。此外多个分片可以加快索引。
+当有大量文档的时候，由于内存的限制、硬盘的能力、处理能力的不足、无法足够快的响应客户端请求。这种情况下，数据可以分为比较小的分片（shard）的部分 （每个分片都是一个独立的 apache Lucene索引）。每个分片可以存放在不同的服务器上，因此数据可以在集群中的节点传播。当查询的数据分布在不同的节点上， Elasticsearch会把查询发送给每个相关的分片，并将结果合并到一起，而应用程序不知道分片的存在。此外多个分片可以加快索引。
+
 3. 副本
-为了提高查询的吞吐量或实现高可用，可以使用分片副本。副本（replica）只是一个分片的精确复制，每个分片可以有零个或多个副本。elasticsearch会有
-很多相同的分片，其中的一个被选择为主分片（primary shard），复制更改索引操作，其余的为副本分片（replica shard）。在主分片丢失时，，例如所在的
-服务器不可用的时候，集群将副本提升为新的主分片。
+为了提高查询的吞吐量或实现高可用，可以使用分片副本。副本（replica）只是一个分片的精确复制，每个分片可以有零个或多个副本。elasticsearch会有很多相同的分片，其中的一个被选择为主分片（primary shard），复制更改索引操作，其余的为副本分片（replica shard）。在主分片丢失时，例如所在的服务器不可用的时候，集群将副本提升为新的主分片。
 
 ### 1.2.3 索引的建立和搜索
 
 elasticsearch会帮我们找到对应的索引处理请求
 ![elasticsearch处理索引请求](./images/elasticsearch处理索引请求.png)
-发送一个新文档给集群的时候，你指定一个目标索引并发送他给任意一个节点。这个节点知道目标索引有多少个分片，并且知道那个分片用来存储你的文档。
-Elasticsearch使用文档的唯一标识符，来计算文档应该放到哪一个分片中。索引请求发送到一个节点后，该节点会转发文档到持有相关分片的目标节点中。
+发送一个新文档给集群的时候，你指定一个目标索引并发送他给任意一个节点。这个节点知道目标索引有多少个分片，并且知道那个分片用来存储你的文档。 Elasticsearch使用文档的唯一标识符，来计算文档应该放到哪一个分片中。索引请求发送到一个节点后，该节点会转发文档到持有相关分片的目标节点中。
 
 elasticsearch执行搜索请求
 ![elasticsearch执行搜索请求](./images/elasticsearch执行搜索请求.png)
 
-尝试使用文档标识获取文档时，发送查询到一个节点，该节点使用同样的路由算法来决定持有文档的节点和分片，然后转发查询，获取结果，并把结果转发给你。
-查询的过程更为复杂。除非使用了路由，查询将直接转发到单个分片，否则，收到查询请求的节点会把查询转发给保存了属于给定索引分片的所有节点，并要求
-与查询匹配的文档的最少信息（默认情况下时标识符和得分）。这个阶段称为发散阶段（scatter phase）。收到这些信息后，该聚合节点（收到客户端请求的节点）
-对结果进行排序，并发送第二个请求来获取结果列表的所需的文档（除标识符和得分以外其他的全部信息）。这个阶段称为收集阶段（gather phase）。这个阶段
-完成后，把数据返回给客户端。
+尝试使用文档标识获取文档时，发送查询到一个节点，该节点使用同样的路由算法来决定持有文档的节点和分片，然后转发查询，获取结果，并把结果转发给你。 查询的过程更为复杂。除非使用了路由，查询将直接转发到单个分片，否则，收到查询请求的节点会把查询转发给保存了属于给定索引分片的所有节点，并要求与查询匹配的文档的最少信息（默认情况下时标识符和得分）。这个阶段称为发散阶段（scatter phase）。收到这些信息后，该聚合节点（收到客户端请求的节点） 对结果进行排序，并发送第二个请求来获取结果列表的所需的文档（除标识符和得分以外其他的全部信息）。这个阶段称为收集阶段（gather phase）。这个阶段完成后，把数据返回给客户端。
     
 ## 1.3 安装并配置集群
 不再赘述
@@ -235,8 +219,7 @@ found : true 表示文档存在
 ```
 
 ### 1.4.5 更新文档
-更新索引内部的文档比较复杂.首先Elasticsearch必须先获取文档,从_source属性获取数据,删除旧的文件,更改_sources属性,然后把它作为新的文档来索引.因为信息
-一旦在Lucene的倒排索引中存储就不能修改.Elasticsearch通过一个带_update参数的脚本来实现.这样就可以做比较简单的修改字段
+更新索引内部的文档比较复杂.首先Elasticsearch必须先获取文档,从_source属性获取数据,删除旧的文件,更改_sources属性,然后把它作为新的文档来索引.因为信息一旦在Lucene的倒排索引中存储就不能修改.Elasticsearch通过一个带_update参数的脚本来实现.这样就可以做比较简单的修改字段
 
 修改content字
 ```http request
@@ -302,8 +285,7 @@ DELETE /blog/_doc/1
 ```
 
 ### 1.4.7 版本控制
-"_version" : 1 这个字段的值是版本号,这个版本号是递增的.默认情况下,在Elasticsearch中添加、修改或者删除的时候都会递增版本号.除了能够记录更该的次数,
-还能够实现乐观锁(optimistic locking).
+"_version" : 1 这个字段的值是版本号,这个版本号是递增的.默认情况下,在Elasticsearch中添加、修改或者删除的时候都会递增版本号.除了能够记录更该的次数, 还能够实现乐观锁(optimistic locking).
 
 例如:
 ```http request
@@ -372,8 +354,7 @@ PUT /blog/_doc/1?version=999&version_type=external
 ]
 }
 ```
-> 即使文档被移除后,短时间内Elasticsearch仍然可以检查版本号,Elasticsearch保留了删除文档的版本信息.默认情况下,这个信息在60s可用.可以通过修改
-> index.gc_deletes配置修改这个值
+> 即使文档被移除后,短时间内Elasticsearch仍然可以检查版本号,Elasticsearch保留了删除文档的版本信息.默认情况下,这个信息在60s可用.可以通过修改index.gc_deletes配置修改这个值
 
 ## 1.5 使用URI请求查询检索
 
@@ -522,19 +503,14 @@ GET /books/_search?pretty&q=title:elasticsearch
 }
 ```
 
-响应的第一部分展示了请求花费多少时间(took属性,单位是毫秒),有没有超时属性(timed_out属性),执行请求时查询的分片信息,包括查询的分片的数量(_shards对象的
-total属性)、成功返回结果的分片数量(_shards对象的successful属性)、失败的分片数量(_shards.failed属性)、忽略的分片数量(_shards.skipped属性,
-执行 跨索引或者跨分片查询时，有多少个 shard 被跳过（未参与搜索）)。
+响应的第一部分展示了请求花费多少时间(took属性,单位是毫秒),有没有超时属性(timed_out属性),执行请求时查询的分片信息,包括查询的分片的数量(_shards对象的total属性)、成功返回结果的分片数量(_shards对象的successful属性)、失败的分片数量(_shards.failed属性)、忽略的分片数量(_shards.skipped属性,执行 跨索引或者跨分片查询时，有多少个 shard 被跳过（未参与搜索）)。
 
 可以使用timeout参数来指定查询的最大执行时间,失败的分片可能是分片出问题或者执行搜索时不可用.
 
-hits里面包含我们使用的结果.查询返回的文档总数(total属性)和计算所得订单最高分(max_score属性),还有包含返回文档的hits数组.每个返回的文档包含索引(
-_index属性)、标识符(_id属性)、分数(_score属性)以及_source字段.
+hits里面包含我们使用的结果.查询返回的文档总数(total属性)和计算所得订单最高分(max_score属性),还有包含返回文档的hits数组.每个返回的文档包含索引(_index属性)、标识符(_id属性)、分数(_score属性)以及_source字段.
 
 2. 查询分析
-上面的例子中,使用"Elasticsearch"建立索引,然后使用"elasticsearch"来执行查询,虽然大小写不同,但是还能找到相关文档,原因是查询分析.在建立索引时,底层的
-Lucene库会根据Elasticsearch配置文件分析文档并建立索引数据.默认情况下,Elasticsearch会告诉Lucene对基于字符串的数据和数字都做索引和分析.查询结果也
-一样,URI的查询会映射到query_string查询,Elasticsearch会分析它.
+上面的例子中,使用"Elasticsearch"建立索引,然后使用"elasticsearch"来执行查询,虽然大小写不同,但是还能找到相关文档,原因是查询分析.在建立索引时,底层的Lucene库会根据Elasticsearch配置文件分析文档并建立索引数据.默认情况下,Elasticsearch会告诉Lucene对基于字符串的数据和数字都做索引和分析.查询结果也一样,URI的查询会映射到query_string查询,Elasticsearch会分析它.
 
 使用索引分析API(indices analyze API)可以查看分析过程是什么样的,建立索引时发生了什么,在查询阶段又发生了什么.
 ```http request
@@ -852,10 +828,8 @@ GET /books/_search?pretty&q=title:elasticsearch&df=title&analyzer=standard&defau
   }
 }
 ```
-- 返回字段 默认情况下,返回每个文档中, Elasticsearch将包含索引名称、文档标识符、得分和_source字段. 可以通过添加field参数并指定一个逗号分割的字段名称列表.
-这些字段将在存储字段或内部的_source字段中检索.默认参数值是_source.举例: field=title
-- 结果排序 通过sort参数,可以自定义排序. 默认是按照得分降序排列.例如: sort=published:desc,如果自定义排序,Elasticsearch将省略计算文档的_score字段.
-如果既要排序,又要计算文档的_score字段,可以通过设置track_scores参数为true.
+- 返回字段 默认情况下,返回每个文档中, Elasticsearch将包含索引名称、文档标识符、得分和_source字段. 可以通过添加field参数并指定一个逗号分割的字段名称列表. 这些字段将在存储字段或内部的_source字段中检索.默认参数值是_source.举例: field=title
+- 结果排序 通过sort参数,可以自定义排序. 默认是按照得分降序排列.例如: sort=published:desc,如果自定义排序,Elasticsearch将省略计算文档的_score字段. 如果既要排序,又要计算文档的_score字段,可以通过设置track_scores参数为true.
 - 搜索超时 默认情况下没有查询超时.按时我们可以通过timeout参数设置查询超时.例如: timeout=5s
 - 查询结果窗口 通过from和size参数,可以指定查询结果窗口.例如: from=0,size=10,可以完成分页功能
 - 搜索类型 通过search_type参数,可以指定搜索类型.默认是query_then_fetch[查询后获取]. dfs_query_then_fetch.其他的基本弃用了.
@@ -872,10 +846,7 @@ GET /books/_search?pretty&q=title:elasticsearch&df=title&analyzer=standard&defau
 
 完整语法地址:https://lucene.apache.org/core/10_2_2/queryparser/org/apache/lucene/queryparser/classic/package-summary.html
 
-传入Lucene的查询被查询解析器分为词(term)和操作符(operator).词可以有两种类型:单词和短语.eg: title:book 短语 title:"elasticsearch book"
-Lucene查询语法支持操作符. 操作符+告诉Lucene给定部分必须在文档中匹配.操作符-相反,这一部分不能出现在文档中.即没有+也没有-的话是可以匹配、但是非强制性
-的查询.所以想找titl字段包含book但是description字段不包含cat的文档可以 +title:book -description:cat. 也可以使用括号来组合多个词 title:(crime punishment)
-还可以使用^操作符接上一个值来助推(boost)一个词,如 title:book^4 
+传入Lucene的查询被查询解析器分为词(term)和操作符(operator).词可以有两种类型:单词和短语.eg: title:book 短语 title:"elasticsearch book" Lucene查询语法支持操作符. 操作符+告诉Lucene给定部分必须在文档中匹配.操作符-相反,这一部分不能出现在文档中.即没有+也没有-的话是可以匹配、但是非强制性的查询.所以想找titl字段包含book但是description字段不包含cat的文档可以 +title:book -description:cat. 也可以使用括号来组合多个词 title:(crime punishment)还可以使用^操作符接上一个值来助推(boost)一个词,如 title:book^4 
 
 # 2 索引
 
@@ -883,11 +854,9 @@ Lucene查询语法支持操作符. 操作符+告诉Lucene给定部分必须在�
 
 ### 2.1.1 分片和副本
 
-Elasticsearch索引是由一个或多个分片组成,每个分片包含了文档集的一部分.并且这些分片可以有副本.在创建索引的时候,可以规定应创建的分片和副本的数量.
-默认使用的是全局配置文件(elasticsearch.yml)定义的默认值,或者是内部的默认值.
+Elasticsearch索引是由一个或多个分片组成,每个分片包含了文档集的一部分.并且这些分片可以有副本.在创建索引的时候,可以规定应创建的分片和副本的数量. 默认使用的是全局配置文件(elasticsearch.yml)定义的默认值,或者是内部的默认值.
 
-一般情况下,同时具有分片和副本,在建立索引文档时,两者都需要进行修改.因为要使用分片得到精确的副本，Elasticsearch需要将分片的变更通知所有的副本。
-如果要读取文件，可以使用分片及其副本。在多节点物理设备中，可以将分片和副本放置不同节点中，从而发挥多节点的处理能力。
+一般情况下,同时具有分片和副本,在建立索引文档时,两者都需要进行修改.因为要使用分片得到精确的副本，Elasticsearch需要将分片的变更通知所有的副本。 如果要读取文件，可以使用分片及其副本。在多节点物理设备中，可以将分片和副本放置不同节点中，从而发挥多节点的处理能力。
 - 更多的分片使索引能传送到更多的服务器，意味着可以处理更多的文件，而不会降低性能
 - 更多的分片意味着获取特定文档所需要的资源量会减少，部署于更少的分片，存储中单个分片中的文件数量更少。
 - 更多的分片意味搜索时会面临更多的问题，因为必须要从更多的分片中合并结果，使得查询的聚合阶段需要更多的资源。
@@ -907,8 +876,7 @@ PUT /blog
 ```yml
 action.auto_create_index: false
 ```
-> action.auto_create_index 不仅仅可以设置成true和false，还可以设置 字符串 比如值： -an*,+a,-*   会从左到右进行匹配生效，代表 不允许an开头
-> 允许a开头，不允许全部，越靠左越优先，匹配到，不会继续往右匹配了
+> action.auto_create_index 不仅仅可以设置成true和false，还可以设置 字符串 比如值： -an*,+a,-*   会从左到右进行匹配生效，代表 不允许an开头,允许a开头，不允许全部，越靠左越优先，匹配到，不会继续往右匹配了
 
 指定配置
 ```http request
@@ -937,3 +905,321 @@ Elasticsearch通过定义文档的json来推断文档的结构。如下面的文
 }
 ```
 feild1字段会被确认成数字（number，或者说是long类型），但是field2会被确认为字符串。
+
+# 第三章 搜索
+
+## 3.1 查询Elasticsearch
+### 示例数据
+本章节默认索引mapping
+```http request
+PUT /library?pretty=true
+{
+  "mappings": {
+    "properties": {
+      "author": {
+        "type": "keyword"
+      },
+      "characters": {
+        "type": "text"
+      },
+      "copies": {
+        "type": "long",
+        "ignore_malformed": false
+      },
+      "otitle": {
+        "type": "text"
+      },
+      "tags": {
+        "type": "text"
+      },
+      "title": {
+        "type": "text"
+      },
+      "year": {
+        "type": "long",
+        "ignore_malformed": false
+      },
+      "available": {
+        "type": "boolean"
+      }
+    }
+  }
+}
+```
+添加数据
+```http request
+POST /library/_bulk?pretty=true
+{ "index": { "_index": "library", "_id": "1" } }
+{ "title": "All Quiet on the Western Front", "otitle": "Im Westen nichts Neues", "author": "Erich Maria Remarque", "year": 1929, "characters": ["Paul Bäumer", "Albert Kropp", "Haie Westhus", "Fredrich Müller", "Stanislaus Katczinsky", "Tjaden"], "tags": ["novel"], "copies": 1, "available": true, "section": 3 }
+{ "index": { "_index": "library", "_id": "2" } }
+{ "title": "Catch-22", "author": "Joseph Heller", "year": 1961, "characters": ["John Yossarian", "Captain Aardvark", "Chaplain Tappman", "Colonel Cathcart", "Doctor Daneeka"], "tags": ["novel"], "copies": 6, "available": false, "section": 1 }
+{ "index": { "_index": "library", "_id": "3" } }
+{ "title": "The Complete Sherlock Holmes", "author": "Arthur Conan Doyle", "year": 1936, "characters": ["Sherlock Holmes", "Dr. Watson", "G. Lestrade"], "tags": [], "copies": 0, "available": false, "section": 12 }
+{ "index": { "_index": "library", "_id": "4" } }
+{ "title": "Crime and Punishment", "otitle": "Преступлéние и наказáние", "author": "Fyodor Dostoevsky", "year": 1886, "characters": ["Raskolnikov", "Sofia Semyonovna Marmeladova"], "tags": [], "copies": 0, "available": true, "section": 5 }
+```
+
+### 3.1.2 简单查询
+
+```http request
+GET /library/_search?q=title:crime&pretty=true
+```
+也可以转换成下面的查询
+```http request
+GET /library/_search
+{
+  "query": {
+    "query_string": {
+      "query": "title:crime"
+    }
+  }
+}
+```
+或者下面的格式
+
+```http request
+GET /library/_search
+{
+  "query": {
+    "query_string": {
+      "query": "crime",
+      "fields": ["title"]
+    }
+  }
+}
+```
+
+### 3.1.3 分页和结果集大小
+可以使用下面的两个参数来控制分页
+- from: 指定希望在结果中返回的起始文档.默认值0
+- size:指定一次查询中返回最大的文档数,默认值10
+
+eg
+```http request
+GET /library/_search
+{
+  "query": {
+    "query_string": {
+      "query": "title:crime"
+    }
+  },
+  "from": 0,
+  "size": 20
+}
+```
+
+### 3.1.4 返回版本值
+Elasticsearrch可以返回文档的版本.需要在最外层设置"version"为true
+```http request
+GET /library/_search
+{
+"query": {
+"query_string": {
+"query": "title:crime"
+}
+},
+"version": true
+}
+```
+返回结果
+```json
+{
+  "took": 1,
+  "timed_out": false,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 1,
+      "relation": "eq"
+    },
+    "max_score": 1.3112575,
+    "hits": [
+      {
+        "_index": "library",
+        "_id": "4",
+        "_version": 1,
+        "_score": 1.3112575,
+        "_source": {
+          "title": "Crime and Punishment",
+          "otitle": "Преступлéние и наказáние",
+          "author": "Fyodor Dostoevsky",
+          "year": 1886,
+          "characters": [
+            "Raskolnikov",
+            "Sofia Semyonovna Marmeladova"
+          ],
+          "tags": [],
+          "copies": 0,
+          "available": true,
+          "section": 5
+        }
+      }
+    ]
+  }
+}
+```
+可以发现hits里面多了_version属性
+
+### 3.1.5 限制得分
+我们使用min_score属性来过滤最低分值,例如希望查询得分高于0.75的文档
+```http request
+GET /library/_search
+{
+  "min_score": 0.75,
+  "query": {
+    "query_string": {
+      "query": "title:crime"
+    }
+  }
+}
+```
+
+### 3.1.6 选择需要返回的字段
+
+在请求体中使用字段数组可以定义返回的字段,但是只能返回在创建索引中标记为存储的字段或者_source里面的字段(默认开启的)
+下面查询只返回文档的title和year字段
+```http request
+
+GET /library/_search
+{
+  "fields": ["title","year"],
+  "query": {
+    "query_string": {
+      "query": "title:crime"
+    }
+  }
+}
+```
+返回结果
+```json
+{
+  "took": 8,
+  "timed_out": false,
+  "_shards": {
+    "total": 1,
+    "successful": 1,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 1,
+      "relation": "eq"
+    },
+    "max_score": 1.3112575,
+    "hits": [
+      {
+        "_index": "library",
+        "_id": "4",
+        "_score": 1.3112575,
+        "_source": {
+          "title": "Crime and Punishment",
+          "otitle": "Преступлéние и наказáние",
+          "author": "Fyodor Dostoevsky",
+          "year": 1886,
+          "characters": [
+            "Raskolnikov",
+            "Sofia Semyonovna Marmeladova"
+          ],
+          "tags": [],
+          "copies": 0,
+          "available": true,
+          "section": 5
+        },
+        "fields": {
+          "year": [
+            1886
+          ],
+          "title": [
+            "Crime and Punishment"
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+说明
+> 如果没有定义 fields属性,那么返回的字段默认为_source里面的字段
+> 如果使用_source字段,并且请求一个没有存储的字段,那么会从_source中提取
+> 如果想返回所有存储的字段,使用 * 进行模糊匹配
+
+**部分字段**
+除了可以选择返回的字段.也可以使用规则控制返回的字段是包含哪些,不包含哪些,使用include和exclude属性来进行设置.
+例如
+```http request
+GET /library/_search
+{
+  "_source": {
+    "includes": [
+      "titl*"
+    ],
+    "excludes": [
+      "chara*"
+    ]
+  },
+  "query": {
+    "query_string": {
+      "query": "title:crime"
+    }
+  }
+}
+```
+
+### 3.1.7 使用脚本字段
+可以在查询结果中,对字段进行计算转换,在查询属性中添加script_fields字段.
+例如:返回一个叫correctYear的值,是使用year字段减1800计算出来的
+```http request
+GET /library/_search
+{
+  "script_fields": {
+    "correctYear": {
+      "script": "doc['year'].value - 1800"
+    }
+  },
+  "query": {
+    "query_string": {
+      "query": "title:crime"
+    }
+  }
+}
+```
+
+**传递参数到脚本字段中**
+
+可以传入外部参数,使用变量名称,并把值传入params中,不是直接写死在等式中.例如
+```http request
+GET /library/_search
+{
+  "script_fields": {
+    "correctYear": {
+      "script": {
+        "lang": "painless",
+        "source": "doc['year'].value - params.paramYear",
+        "params": {
+          "paramYear": 1800
+        }
+      }
+    }
+  },
+  "query": {
+    "query_string": {
+      "query": "title:crime"
+    }
+  }
+}
+```
+
+## 3.2 理解查询过程
+在大多数情况下,Elasticsearch需要分散查询到多个节点中,得到结果,合并他们,再获取有关文档并返回结果.实际上还有另外三个定义查询行为的功能:查询重写、 搜索类型和查询执行偏好.
+
+### 3.2.1 查询逻辑
+默认情况下,查询过程主要分为两个阶段
+![elasticsearch执行搜索请求.png](images/elasticsearch执行搜索请求.png)
+查询发送到Elasticsearch中的一个节点,这时候发送的就是**发散阶段**.查询分布到建立索引的所有分片上.如果他建立了5个分片和一个副本,那么查询的时候5个分片都会被查询(不需要同时查询分片和副本,因为包含的数据是相同的).每个查询只返回文档的标识符和得分,发送分散查询的节点将等待所有分片完成他们的任务, 收集结果
