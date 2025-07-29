@@ -906,6 +906,104 @@ Elasticsearch通过定义文档的json来推断文档的结构。如下面的文
 ```
 feild1字段会被确认成数字（number，或者说是long类型），但是field2会被确认为字符串。
 
+feild1字段会被确认成数字（number，或者说是long类型），但是field2会被确认为字符串。但是有时候会省略数据类型的相关信息，一切都是字符串。那么我们在映射定义文件中把 numeric_detection属性设置为true，就会开启更积极的文本检测。例如
+```
+PUT /blog/
+{
+  "mappings": {
+    "numeric_detection": true
+  }
+}
+```
+但是当我们使用日期的时候，我们可以直接指定可以被识别的日期格式列表，例如
+```
+PUT /blog/ 
+{
+  "mappings": {
+    "dynamic_date_formats": ["yyyy-MM-dd", "yyyy-MM-dd hh:mm"]
+  }
+}
+```
+
+禁用字段类型猜测
+在使用类型推断的时候，如果前面文档中类型是数字，会推断出类型为整数型（integer）或长整型（long），当写入另外一个文档的时候，值是浮点数，这个时候Elasticsearch会删除小数部分并且存储剩余整数。很显然这个不是我们希望看到的。另外一个原因，我们并不一定希望中索引中出现新加的字段，这个时候我们就可以关闭自动添加字段。可以把dynamic属性设置为false。把dynamic属性添加为类型的属性。例如
+```
+PUT /blog 
+{
+  "mappings": {
+    "dynamic": false,
+    "properties": {
+      "id": {
+        "type": "keyword"
+      },
+      "content": {
+        "type": "text"
+      },
+      "author": {
+        "type": "keyword"
+      }
+    }
+  }
+}
+```
+创建索引之后，如果在properties部分没有定义的字段就会被Elasticsearch忽略。
+
+### 2.2.2 索引结构映射
+模式映射（schema mapping）用于定义索引结构。我们可以使用文件内容来定义，在创建索引的时候使用，eg，posts.json文件内容
+```json
+{
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "keyword" 
+      },
+      "name": {
+        "type": "text"
+      },
+      "published": {
+        "type": "date"
+      },
+      "contents": { 
+        "type": "text"
+      }
+    }
+  }
+}
+```
+1. 类型定义【已经废弃】
+
+2. 字段
+完整的单个字段定义如下所示
+```json
+"contents": { "type":"text", "store":"yes", "index":"analyzed" }
+```
+如果包含多个使用逗号进行分割。
+3. 核心类型
+每个字段可以指定为elasticsearch提供的一个特定核心类型。
+- string： 字符串，已经修改为 keyword和text
+- number：数字
+- date：日期
+- boolean：布尔
+- binary：二进制
+
+4. 分析器
+下面几种系统自带的
+- standard 标准分析器
+- simple 基于非字母字符进行分割，并且转换成小写
+- whitespace 基于空格进行分词
+- stop 类似simple分析器，还能基于所提供的停用词（stop word）过滤数据
+- keyword 不进行分词
+- pattern 通过使用正则表达式进行分离文本
+- language 在特定的语言环境下工作
+- snowball 类似standard分析器，但是提供了词干提取算法（stemming algorithm）
+
+自定义分析器
+```json
+
+
+```
+
+
 # 第三章 搜索
 
 ## 3.1 查询Elasticsearch
