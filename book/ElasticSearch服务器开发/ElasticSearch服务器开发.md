@@ -999,9 +999,34 @@ PUT /blog
 
 自定义分析器
 ```json
-
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "en": {
+          "tokenizer": "standard",
+          "filter": [
+            "asciifolding",
+            "lowercase",
+            "ourEnglishFilter"
+          ]
+        }
+      },
+      "filter": {
+        "ourEnglishFilter": {
+          "type": "kstem"
+        }
+      }
+    }
+  }
+}
+```
+定义了一个新的分析器en，每个分析器由一个分词器和多个过滤器组成，上面的定义包含standard分词器和三个过滤器，默认的asciifolding、lowercase和自定义的ourEnglishFilter。自定义过滤器需要指明名称、过滤器类型和任意数量的附加参数。
+最后我们的映射文档结构如下
+```json
 
 ```
+
 
 
 # 第三章 搜索
