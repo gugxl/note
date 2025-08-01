@@ -69,5 +69,68 @@ POST /{index}/_bulk
 PUT /_bulk
 POST /_bulk
 ```
+例如:多种操作
+> 注意如果是kinaba数据批量请求,数据放到同一行,如果是curl,数据最后一行多个换行符
+
+```http request
+POST /_bulk?pretty
+{"index":{"_index":"test","_id":"1"}}{"field1":"value1"}{"delete":{"_index":"test","_id":"2"}}{"create":{"_index":"test","_id":"3"}}{"field1":"value3"}{"update":{"_index":"test","_id":"1"}}{"doc":{"field2":"value2"}}
+```
+
+批量update 可以使用retry_on_conflict 指定版本冲突重试次数
+```http request
+POST /_bulk?pretty
+{ "update" : {"_id" : "1", "_index" : "index1", "retry_on_conflict" : 3} }{ "doc" : {"field" : "value"} }{ "update" : { "_id" : "0", "_index" : "index1", "retry_on_conflict" : 3} }{ "script" : { "source": "ctx._source.counter += params.param1", "lang" : "painless", "params" : {"param1" : 1}}, "upsert" : {"counter" : 1}}{ "update" : {"_id" : "2", "_index" : "index1", "retry_on_conflict" : 3} }{ "doc" : {"field" : "value"}, "doc_as_upsert" : true }{ "update" : {"_id" : "3", "_index" : "index1", "_source" : true} }{ "doc" : {"field" : "value"} }{ "update" : {"_id" : "4", "_index" : "index1"} }{ "doc" : {"field" : "value"}, "_source": true}
+```
+
+只查看失败的信息,使用`filter_path=items.*.error`进行过滤
+```http request
+POST /_bulk?filter_path=items.*.error
+{ "index" : { "_index" : "test", "_id" : "1" } }{ "field1" : "value1" }{ "delete" : { "_index" : "test", "_id" : "2" } }{ "create" : { "_index" : "test", "_id" : "3" } }{ "field1" : "value3" }{ "update" : {"_id" : "1", "_index" : "test"} }{ "doc" : {"field2" : "value2"} }
+```
+
+运行`POST /_bulk`以执行包含索引和创建操作且带有`dynamic_templates`参数的批量请求。根据`dynamic_templates`参数，该批量请求会创建两个类型为`geo_point`的新字段`work_location`和`home_location`。然而，`raw_location`字段是使用默认的动态映射规则创建的，在这种情况下，由于它在JSON文档中是以字符串形式提供的，因此被创建为文本字段。
+```http request
+POST /_bulk
+{ "index" : { "_index" : "my_index", "_id" : "1", "dynamic_templates": {"work_location": "geo_point"}} }{ "field" : "value1", "work_location": "41.12,-71.34", "raw_location": "41.12,-71.34"}{ "create" : { "_index" : "my_index", "_id" : "2", "dynamic_templates": {"home_location": "geo_point"}} }{ "field" : "value2", "home_location": "41.12,-71.34"}
+```
+
 在单个请求中执行多个 index、create、delete 或 update 操作,可以减少开销,提高索引速度.
 
+如果开启了权限功能,需要的权限说明
+- create操作: create_doc、create、index、 write index权限;数据流只支持create操作
+- index操作: create、index或write index权限;
+- delete操作: delete、write index权限;
+- update操作: index或write index权限;
+- 批量API自动创建数据流或索引:auto_configure、create_index或者manage index权限;
+- 使用refresh让批量操作对搜索结果可见:maintenance或manage index权限;
+
+#### 乐观并发控制 Optimistic concurrency control
+
+
+
+
+
+
+##  search
+[search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
+
+
+
+##  映射
+[Mapping](https://www.elastic.co/docs/manage-data/data-store/mapping)
+
+## 模版
+[templates](https://www.elastic.co/docs/manage-data/data-store/templates)
+
+## 聚合
+[aggregations](https://www.elastic.co/docs/explore-analyze/query-filter/aggregations)
+
+## 节点设置
+[node-settings](https://www.elastic.co/docs/reference/elasticsearch/configuration-reference/node-settings)、
+
+## 分析器
+[text-analysis](https://www.elastic.co/docs/manage-data/data-store/text-analysis)
+
+## 优化加速
+[search-speed(https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/search-speed)
