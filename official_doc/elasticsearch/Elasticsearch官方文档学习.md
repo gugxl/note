@@ -6,7 +6,7 @@
 
 
 单机模式: [docker compose搭建elk 8.6.2](https://blog.csdn.net/zhazhagu/article/details/148619309)
-集群模式:[使用docker compose 部署Elasticsearch 9.0.4集群 + kinaba](https://blog.csdn.net/zhazhagu/article/details/149809217)
+集群模式:[使用docker compose 部署Elasticsearch 9.0.4集群 + kibana](https://blog.csdn.net/zhazhagu/article/details/149809217)
 
 使用最新版的进行学习,按照重要程度进行学习,先学习重要的
 
@@ -70,7 +70,7 @@ PUT /_bulk
 POST /_bulk
 ```
 例如:多种操作
-> 注意如果是kinaba数据批量请求,数据放到同一行,如果是curl,数据最后一行多个换行符
+> 注意如果是kibana数据批量请求,数据放到同一行,如果是curl,数据最后一行多个换行符,下面一般情况下使用kibana的格式
 
 ```http request
 POST /_bulk?pretty
@@ -105,12 +105,23 @@ POST /_bulk
 - 批量API自动创建数据流或索引:auto_configure、create_index或者manage index权限;
 - 使用refresh让批量操作对搜索结果可见:maintenance或manage index权限;
 
+数据流自动创建需要启用数据流匹配的索引模版
+
+如果在批量请求的路径上指定了index，那么在所有没有指明_index的操作中都会使用这个索引
+> Elasticsearch默认将HTTTP请求设置最大大小为100MB，因此在请求的时候必须保证请求小于这个大小。
+
 #### 乐观并发控制 Optimistic concurrency control
 
+批量API调用的每个index和delete在各自的动作和Meta数据行中包含if_seq_no和if_primary_term参数，使用if_seq_no和if_primary_term参数根据现有文档最后一次修改来控制操作的运行方法。
 
 
+#### 版本控制（version）
+每个批量操作都可以包含版本值。会根据_version映射自动匹配索引或者删除操作。也支持version_type操作
 
+#### 路由 Routing
+每个批量操作都支持`routing`字段，会根据_routing映射自动匹配对应的索引或者删除操作
 
+> 数据流不支持自定义路由除非在模版中使用` allow_custom_routing`
 
 ##  search
 [search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
@@ -133,4 +144,4 @@ POST /_bulk
 [text-analysis](https://www.elastic.co/docs/manage-data/data-store/text-analysis)
 
 ## 优化加速
-[search-speed(https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/search-speed)
+[search-speed](https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/search-speed)
