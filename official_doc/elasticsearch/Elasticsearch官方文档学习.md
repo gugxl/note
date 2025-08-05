@@ -121,7 +121,32 @@ POST /_bulk
 #### 路由 Routing
 每个批量操作都支持`routing`字段，会根据_routing映射自动匹配对应的索引或者删除操作
 
-> 数据流不支持自定义路由除非在模版中使用` allow_custom_routing`
+> 数据流不支持自定义路由除非在模版中启用` allow_custom_routing`设置创建的
+
+#### 等待活动分片 Wait for active shards
+在进行批量调用的时候，可以指定`wait_for_active_shards`参数，以要求在开始处理批量请求之前至少有多少个分片副本处于活动状态。
+
+#### 刷新 Refresh
+控制什么时候可以搜索到这个请求所做的更改
+> 只有接受批量请求的分片才会受到刷新的影响，`refresh=wait_for`
+> 可以禁用刷新，以提高批量请求的索引吞吐量。
+
+[参考文档](https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/indexing-speed#disable-refresh-interval)
+
+#### 路径参数 Path parameters
+index String 必须
+批量操作必须包含data stream或者索引或别名
+
+#### 查询参数
+**include_source_error** Boolean
+分析发生错误的时候错误消息是否包含源文档
+
+**list_executed_pipelines** Boolean
+true的时候响应包含每个索引或创建运行的管道
+
+**pipeline** String
+
+
 
 ##  search
 [search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
@@ -145,3 +170,11 @@ POST /_bulk
 
 ## 优化加速
 [search-speed](https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/search-speed)
+
+
+[生产指导](https://www.elastic.co/docs/deploy-manage/production-guidance)
+
+
+
+
+
