@@ -58,10 +58,10 @@ _id : 文档的ID,在索引里面文档的id是唯一的
 PUT /semantic-index
 ```
 
-## 文档操作(Document)
+# 文档操作(Document)
 [Document](https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-document)
 
-### 批量创建或者删除文档 (Bulk index or delete documents)
+## 批量创建或者删除文档 (Bulk index or delete documents)
 语法 :
 ```http request
 PUT /{index}/_bulk
@@ -133,11 +133,11 @@ POST /_bulk
 
 [参考文档](https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/indexing-speed#disable-refresh-interval)
 
-#### 路径参数 Path parameters
+### 路径参数 Path parameters
 index String 必须
 批量操作必须包含data stream或者索引或别名
 
-#### 查询参数
+### 查询参数
 **include_source_error** Boolean
 分析发生错误的时候错误消息是否包含源文档
 
@@ -165,32 +165,191 @@ true的时候响应包含每个索引或创建运行的管道
 #### timeout String
 每个操作等待下一个操作的时间；自动索引创建、动态映射更新和等待活动分片。默认值是1min，保证Elasticsearch值失败之亲啊的至少等待超时。实际时间可能会更长，当发生多个等待的时候。
 
+可以设置值是 0 代表不等待, -1 一直等待
+
+#### wait_for_active_shards Number | string
+批量操作必须等待至少多少个分片副本处于活动状态。可以设置为all或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`),默认是1,等待每个主分片处于活动状态.
+
+#### require_alias Boolean
+true 代表必须是索引的别名
+
+#### require_data_stream Boolean
+true 代表操作的目标必须是数据流(已经存在或创建)
+
+### Body Object Required
+
+#### OperationContainer Object
+
+**index** Object
+- _id: String
+- _index: String
+- routing:  String
+- if_primary_term: Number
+- if_seq_no: Number
+- version: Number
+- version_type: String 值可以是 internal, external, external_gte, force
+- dynamic_templates: Object 从字段全名匹配的动态模板,如果不存在就使用这个模版,如果已经存在就不处理.
+**dynamic_templates attribute** Object
+String
+- pipeline String
+  用于预处理传入文档的管道标识符。如果指定了默认的提取管道，则将该值设置为`_none`会关闭此请求的默认提取管道。如果配置了最终管道，则一直会保持运行。
+- require_alias Boolean . true 代表必须是索引的别名,默认false
+
+**create** Object
+跟index 完全一样
+- _id: String
+- _index: String
+- routing:  String
+- if_primary_term: Number
+- if_seq_no: Number
+- version: Number
+- version_type: String 值可以是 internal, external, external_gte, force
+- dynamic_templates: Object 从字段全名匹配的动态模板,如果不存在就使用这个模版,如果已经存在就不处理.
+  **dynamic_templates attribute** Object
+  String
+- pipeline String
+  用于预处理传入文档的管道标识符。如果指定了默认的提取管道，则将该值设置为`_none`会关闭此请求的默认提取管道。如果配置了最终管道，则一直会保持运行。
+- require_alias Boolean . true 代表必须是索引的别名,默认false
+
+**update** Object
+多出这个字段
+- retry_on_conflict:  Number 版本冲突重试的次数
+其他基本一样的字段
+- _id: String
+- _index: String
+- routing:  String
+- if_primary_term: Number
+- if_seq_no: Number
+- version: Number
+- version_type: String 值可以是 internal, external, external_gte, force
+- pipeline String
+  用于预处理传入文档的管道标识符。如果指定了默认的提取管道，则将该值设置为`_none`会关闭此请求的默认提取管道。如果配置了最终管道，则一直会保持运行。
+- require_alias Boolean . true 代表必须是索引的别名,默认false
 
 
-##  search
+**delete** Object
+- _id: String
+- _index: String
+- routing:  String
+- if_primary_term: Number
+- if_seq_no: Number
+- version: Number
+- version_type: String 值可以是 internal, external, external_gte, force
+
+### Responses 
+200
+- errors Boolean Required .如果是true,批量请求中有一个或多个操作失败
+- items Array[Object] Required. 每个操作响应的结果,按照提交请求顺序
+attribute 如下
+    - _id string | null
+    - _index string Required
+    - status number Required . http请求状态码
+    - failure_store String. 值可能出现的范围:[not_applicable_or_unknown | used | not_enabled | failed ]
+    - error  Object,包含属性
+      - reason string | null . 错误信息
+      - stack_trace string 错误堆栈,error_trace=true的时候才会有
+      - caused_by Object. 请求失败详细原因
+      - root_cause Array[Object] . 请求失败的原因和详细信息。
+    - _primary_term number. 操作成功的时候有值,操作的主分片的任期号
+    - result string. 操作的结果,值可能出现的范围:[created | updated | deleted ]
+    - _seq_no number
+    - _shards Object.
+      - failed number Required
+      - successful number Required
+      - total number Required
+      - failures Array[Object]
+      - skipped number
+    - _version  number
+    - forced_refresh  boolean
+    - get Object.
+      - fields object 
+      - found boolean Required
+      - _seq_no number
+      - _primary_term number
+      - _routing string
+      - _source object
+    - took number Required
+    - ingest_took number
+## Create a new document in the index 创建文档
+格式
+```http request
+POST /{index}/_create/{id}
+PUT /{index}/_create/{id}
+```
+使用_creat的时候需要保证{id}不存在,如果存在,则返回409错误
+
+示例
+```http request
+PUT my-index-000001/_create/1
+{
+  "@timestamp": "2099-11-15T13:12:00",
+  "message": "GET /search HTTP/1.1 200 1070000",
+  "user": {
+    "id": "kimchy"
+  }
+}
+```
+如果启用了安全功能,执行的时候需要对目标数据流、索引或者索引别名有索引权限
+- `POST /{index}/_create/{id}`: 创建文档必须要有`create_doc,create,index`或`write index`的权限
+- 如果要自动创建索引或者数据流,必须要有`auto_config,create_index`或`manage`权限
+自动创建数据流需要启用数据流的匹配索引模版
+
+### Automatically create data streams and indices 自动创建数据流或者索引
+如果请求的目标不存在,并且有与具有data_stream定义的索引模版匹配,则索引操作自动创建数据流.
+如果目标不存在,没有与之匹配的数据流模版,那么就会自动创建索引,并应用任何匹配的索引模版
+如果不存在映射,索引操作会创建动态映射.默认情况,新的字段和对象会自添加到映射中.
+
+自动创建索引由`action.auto_create_index`控制,true可以创建任意索引,false是禁止, 可以使用多个逗号分割的模式,使用 + 或 - 前缀来标记允许或禁用模式.直接使用列表代表不允许.
+
+> `action.auto_create_index` 只影响索引的自动创建,不影响数据流的创建
+
+### Routing 路由
+
+默认情况下分片的位置(或者路由)是使用文档的ID值的散列来控制.对于显示的控制,可以使用`routing`参数来显式控制,直接指定路由器使用的hash函数的值.
+在使用显示映射时,可以使用`_routing`参数来指定索引操作从文档中获取路由值,但是需要额外解析文档(代价也比较小).如果定义了`_routing`设置,并且设置为必须,如果没有提供或提取路由值,那么索引操作就会失败.
+
+> 数据流不支持自定义路由,除非是在模版中使用`allow_custom_routing`创建的
+
+### Distributed 分布式
+索引操作根据主分片的路由定位到主分片,并且在该分片的实际节点上执行.在主分片完成操作后,如果需要,把更新分发到合适的副本.
+
+### Active shards 激活分片
+为了提高系统的写入的弹性,可以将索引的操作配置为在操作之前等待一定数量的活动分片副本.如果没有达到数量,写入操作必须等待或者重试,直到需要的分片副本已经启动或发送超时.默认情况下写操作只会等待主分片处于活动状态后才会继续(`wait_for_active_shards`是1).可以通过`index.write.wait_for_active_shards`参数进行覆盖配置配置.也可以直接在请求中携带参数`wait_for_active_shards`
+
+有效值范围是索引中每个分片配置的副本总数(number_of_replicas + 1)以内的所有或任意正整数.如果是负值或者大于分片副本数就会报错.
+
+这个设置会降低写入操作的未写入所需分片副本的可能性,但是不能消除,因为这个检查发生在写操作之前,在写操作完成之后,复制可能在任何数量的分片副本上失败,但是主分仍然是成功的,响应结果中`_shards`部分显示复制成功和失败的分片副本数量.
+
+### No operation (noop) update
+在使用API更新文档的时候,如果文档没有改变,也总是会创建文档的新副本,如果不能接受,那么在使用 `_update` API的时候设置`detect_noop`为true.但是创建文档的时候这个选项是不可用的,因为没有旧的 文档,就不能进行比较.
+
+### Versioning 版本控制
+
+
+#  search
 [search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
 
 
 
-##  映射
+#  映射
 [Mapping](https://www.elastic.co/docs/manage-data/data-store/mapping)
 
-## 模版
+# 模版
 [templates](https://www.elastic.co/docs/manage-data/data-store/templates)
 
-## 聚合
+# 聚合
 [aggregations](https://www.elastic.co/docs/explore-analyze/query-filter/aggregations)
 
-## 节点设置
+# 节点设置
 [node-settings](https://www.elastic.co/docs/reference/elasticsearch/configuration-reference/node-settings)、
 
-## 分析器
+# 分析器
 [text-analysis](https://www.elastic.co/docs/manage-data/data-store/text-analysis)
 
-## 优化加速
+# 优化加速
 [search-speed](https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/search-speed)
 
-
+# 生产指导
 [生产指导](https://www.elastic.co/docs/deploy-manage/production-guidance)
 
 
