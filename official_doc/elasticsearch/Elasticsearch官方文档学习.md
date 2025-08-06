@@ -145,6 +145,25 @@ index String 必须
 true的时候响应包含每个索引或创建运行的管道
 
 **pipeline** String
+用于预处理传入文档的管道标识符。如果指定了默认的提取管道，则将该值设置为`_none`会关闭此请求的默认提取管道。如果配置了最终管道，则一直会保持运行。
+
+#### refresh String
+如果`true`,Elasticsearch会刷新受影响的分片，只对搜索可见。如果是`wait_for`，等待刷新以使这个操作可以提供搜索。如果是`false`，就不刷新。
+
+#### routing String
+用于将操作路由到也定的分片的自定义值
+
+#### _source Boolean，String，Array[String]
+是否返回 `_source`字段，或者要返回的字段列表。
+
+#### _source_excludes String,Array[String]
+从响应中排除的源字段。也可以从`_source_includes`查询参数中指定的子集中排除字段。如果`_source`是`false`，就会忽略这个参数。
+
+#### _source_includes String,Array[String]
+要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用_source_excludes，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
+
+#### timeout String
+每个操作等待下一个操作的时间；自动索引创建、动态映射更新和等待活动分片。默认值是1min，保证Elasticsearch值失败之亲啊的至少等待超时。实际时间可能会更长，当发生多个等待的时候。
 
 
 
