@@ -324,7 +324,118 @@ PUT my-index-000001/_create/1
 在使用API更新文档的时候,如果文档没有改变,也总是会创建文档的新副本,如果不能接受,那么在使用 `_update` API的时候设置`detect_noop`为true.但是创建文档的时候这个选项是不可用的,因为没有旧的 文档,就不能进行比较.
 
 ### Versioning 版本控制
+每个被索引的文档都有一个版本号。默认情况下使用内部版本控制，从1开始，随着每次更新（包括删除）递增。版本号也可以使用外部的值，这个时候应该把`version_type`设置为`external`。提供的值必须大于等于0小于9.2e+18的长整型数值.
 
+> 版本控制是完全实时的，搜索是近实时的，如果没有提供版本，那么就不会进行任何版本检查
+
+当使用外部版本类型时，系统检查传递给索引请求的版本号是否大于当前存储文档的版本。如果大于，对文档进行索引并且使用新的版本号。如果小于或者等于，就会发生版本冲突，索引操作失败。
+```http request
+PUT my-index-000001/_doc/1?version=2&version_type=external
+{
+  "user": {
+    "id": "elkbee"
+  }
+}
+```
+上面的示例会正常执行，但是当重复执行的时候，因为提供的版本号不大于当前文档的版本，就会出现版本冲突，http 409状态
+
+
+### Path parameters路径参数
+
+- index String Required
+目标数据流或者索引的名称，如果目标不存在，并且与具有*定义的索引模版名称或者模式匹配，则此请求将会创建数据流。如果目标不存在，且与数据流模版不匹配，则此请求会创建索引
+
+- id String Required
+文档的唯一标识。如果需要自动生成文档id，可以生路id字段进行创建如 `POST /<target>/_doc/`并省略这个参数。
+
+### Query parameters 查询参数
+- if_primary_term Number
+只有在主分片任期（primary term）与请求中的值完全匹配的时候，才会执行这次操作，否则拒绝。
+- if_seq_no Number
+仅当文档具有此序号时才执行此操作
+- include_source_on_error Boolean
+当值为ture，当索引文档出现解析错误（parsing error）的时候，错误消息会包含整个文档的`_source`内容
+当值为false，错误信息不包含`_source`，只显示错误原因。
+> 为什么有这个选项，1. **方便调试**，2. **安全考虑**，文档中有敏感信息，可以设置为false，3. 性能考虑可以设置为false减少响应数据量
+- op_type String
+设置为create，仅当文档不存在的时候索引文档，如果指定了_id的文档已经存在了，索引操作将失败。操作跟 <index>/_create一致。如果指定了文档的id，则参数默认为index。否则默认为create。如果请求的目标是数据流，则需要op_type为create
+取值 为 【 index ｜ create 】，分别代表覆盖任何已经存在的文档，仅索引不存在的文档。
+- pipeline String
+  用于预处理传入文档的管道标识符。如果指定了默认的提取管道，则将该值设置为`_none`会关闭此请求的默认提取管道。如果配置了最终管道，则一直会保持运行。
+- refresh String
+  如果`true`,Elasticsearch会刷新受影响的分片，只对搜索可见。如果是`wait_for`，等待刷新以使这个操作可以提供搜索。如果是`false`，就不刷新。
+- routing String
+  用于将操作路由到也定的分片的自定义值
+- timeout String
+请求等待以下操作的时间；自动索引创建、动态映射更新和等待活动分片。默认值是1min，保证Elasticsearch值失败之亲啊的至少等待超时。实际时间可能会更长，当发生多个等待的时候。
+
+可以设置值是 0 代表不等待, -1 一直等待
+- version Number 
+跟之前的一样是非负的长整数
+- version_type String
+  值可以是 
+  - internal, 内部控制，从1开始，每次更新或删除时递增
+  - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+  - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+  - force 已经弃用，因为可能导致 主分片和副本分片分离 
+  - wait_for_active_shards Number | string
+    批量操作必须等待至少多少个分片副本处于活动状态。可以设置为all或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`),默认是1,等待每个主分片处于活动状态.
+  - require_alias Boolean
+    true 代表必须是索引的别名 
+  - require_data_stream Boolean 
+     true 代表操作的目标必须是数据流(已经存在或创建)
+### Body Object Required 
+### Responses
+200 
+- _id String Required
+- _index String Required
+- status number Required . http请求状态码
+    - failure_store String. 值可能出现的范围:[not_applicable_or_unknown | used | not_enabled | failed ]
+    - error  Object,包含属性
+        - reason string | null . 错误信息
+        - stack_trace string 错误堆栈,error_trace=true的时候才会有
+        - caused_by Object. 请求失败详细原因
+        - root_cause Array[Object] . 请求失败的原因和详细信息。
+    - _primary_term number. 操作成功的时候有值,操作的主分片的任期号
+    - result string. 操作的结果,值可能出现的范围:[created | updated | deleted | not_found | noop]
+    - _seq_no number
+    - _shards Object.
+        - failed number Required
+        - successful number Required
+        - total number Required
+        - failures Array[Object]
+        - skipped number
+    - _version  number
+    - forced_refresh  boolean
+  
+s示例
+```http request
+PUT my-index-000001/_create/1
+{
+  "@timestamp": "2099-11-15T13:12:00",
+  "message": "GET /search HTTP/1.1 200 1070000",
+  "user": {
+    "id": "kimchy"
+  }
+}
+```
+响应
+```json
+{
+  "_index": "my-index-000001",
+  "_id": "1",
+  "_version": 4,
+  "result": "created",
+  "_shards": {
+    "total": 2,
+    "successful": 2,
+    "failed": 0
+  },
+  "_seq_no": 3,
+  "_primary_term": 1
+}
+```
+## Get a document by its ID
 
 #  search
 [search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
