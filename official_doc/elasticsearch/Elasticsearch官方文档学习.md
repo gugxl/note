@@ -506,7 +506,7 @@ true的时候请求是实时的，而不是近实时的。
     - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
     - force 已经弃用，因为可能导致 主分片和副本分片分离
 
-## Response 响应
+### Response 响应
 200
 
 -  _index String Boolean Required
@@ -534,6 +534,22 @@ GET my-index-000001/_doc/1?stored_fields=tags,counter
   "found": true
 }
 ```
+
+## Create or Update a document in an index
+
+格式
+```http request
+POST /{index}/_doc/{id}
+POST /{index}/_doc
+PUT /{index}/_doc/{id}
+```
+将 JSON 文档添加到指定的数据流或索引，并使其可搜索。如果目标是索引且文档已存在，则请求会更新文档并增加其版本。
+> 不能使用此API发送数据流现有文档的更新请求。
+
+如果启用了安全功能。就需要对目标数据流，索引或索引别名具有以下的索引权限：
+- 使用 PUT /<target>/_doc/<_id> 请求格式添加或者覆盖文档，必须要有create、index或write索引权限
+- 使用 POST /{index}/_doc 
+
 
 
 #  search
