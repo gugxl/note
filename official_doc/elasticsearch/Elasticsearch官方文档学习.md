@@ -480,7 +480,61 @@ Path parameters 路径参数
 Query parameters 查询参数
 - preference String 首选项
 应该在哪个节点或分片上执行，默认再分片和副本间随机变化
-如果设置为_local 
+如果设置为_local,则操作优先中本地分配的分片上执行。如果设置为自定义值，则该值用于确保相同的自定义值用于相同的分片，有助于在不同的刷新状态下访问不同分片时进行“跳跃值”操作。例如可以使用web session ID或者用户名。
+- realtime boolean
+true的时候请求是实时的，而不是近实时的。
+- refresh Boolean
+如果是true，会在请求检索文档之前刷新相关分片。需要考虑并确认这个操作不会给系统造成过重负载。
+- routing String
+用于将操作路由到特定分片的自定义值
+- _source Boolean | String | Array[String]
+标识返回是否包含`_source`字段（true或false）或列出要返回的字段
+- _source_excludes String | Array[String]
+  从响应中排除的源字段。也可以从`_source_includes`查询参数中指定的子集中排除字段。如果`_source`是`false`，就会忽略这个参数。
+- _source_exclude_vectors Boolean 在9.2.0版本中添加
+是否应从_source排除向量
+- _source_includes String,Array[String]
+  要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用_source_excludes，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
+- stored_fields String|Array[String]
+以逗号分隔存储的字段列表，作为命中的一部分返回。如果没有指定字段，那么响应中不包含任何存储字段。如果指定了这个字段，则_source字段默认为false。使用stored_fields只能检索叶子字段。不能返回对象字段；如果指定对象字段就会请求失败。
+- Version Number 版本号
+  用于并发控制的版本号，当文档版本等于当前查询指定的版本，才能检索出文档
+- version_type String
+  值可以是
+    - internal, 内部控制，从1开始，每次更新或删除时递增
+    - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+    - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+    - force 已经弃用，因为可能导致 主分片和副本分片分离
+
+## Response 响应
+200
+
+-  _index String Boolean Required
+- fields Object 如果 `stored_fields` 参数设置为 `true` ，并且 `found` 为 `true` ，则它包含存储在索引中的文档字段。
+- _ignored Array[String]
+- found Boolean Required
+- _primary_term Number 索引分配给文档的主要标识符
+- _routing String 显示路由[如果设置]
+- _seq_no Number
+- _source Object  如果found是true，则包含json格式的文档数据，如果_source参数设置为false或者stored_fields是true，就排除这个参数
+- _version 版本号
+
+示例
+```http request
+GET my-index-000001/_doc/1?stored_fields=tags,counter
+```
+响应
+```json
+{
+  "_index": "my-index-000001",
+  "_id": "1",
+  "_version": 4,
+  "_seq_no": 3,
+  "_primary_term": 1,
+  "found": true
+}
+```
+
 
 #  search
 [search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
