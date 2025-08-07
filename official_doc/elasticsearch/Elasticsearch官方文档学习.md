@@ -435,7 +435,52 @@ PUT my-index-000001/_create/1
   "_primary_term": 1
 }
 ```
-## Get a document by its ID
+## Get a document by its ID 根据id获取文档
+格式
+```http request
+GET /{index}/_doc/<id>
+```
+从索引中获取文档
+
+默认情况下是实时的,不受刷新率影响.在使用`stored_fields`参数请求存储字段并且文档已经更新但尚未刷新的情况下，API必须解析和分析源以存储字段.如果需要关闭可以把realtime参数设置为false.
+
+Source filtering
+默认情况下,API返回_source字段的内容,除非使用了`stored_fields`或者`_source`字段被关闭,可以使用`_source`来关闭
+```http request
+GET /my-index-000001/_doc/1?_source=false
+```
+如果只需要其中的几个字段可以使用`_source_includes`或`_source_excludes` 来包含或者过滤掉某些字段.对于检索可以节省网络开销,对于大型文档很有作用,都是逗号分割的字段或者表达式.
+```http request
+GET my-index-000001/_doc/0?_source_includes=*.id&_source_excludes=entities
+GET my-index-000001/_doc/0?_source=*.id
+```
+Routing 路由
+
+如果在索引期间使用路由，则还需要指定路由值以检索文档
+```http request
+GET my-index-000001/_doc/2?routing=user1
+```
+此请求获取ID为2的文档，但它是根据用户路由的。如果未指定正确的路由，则不会获取文档。但是如果分片是一样的时候也是可以获取数据的（）
+
+Distribute 分布式
+GET操作被散列到分片Id上，然后这个分片的所有副本都可以返回结果。也意味着副本越多，GET请求的伸缩性就越好。
+
+Version Support 版本控制支持
+当文档版本等于当前查询指定的版本，才能检索出文档
+在更新的时候，在内部Elasticsearch旧文档被标记为删除，并添加新文档，即使无法访问他，旧的文档也不会立即消失，Elasticsearch会在后台清理已经删除的文档，同时索引更多的数据。
+
+Required authorization
+
+索引的read权限
+
+Path parameters 路径参数
+- index String required 索引名称
+- id String required 文档唯一标识
+
+Query parameters 查询参数
+- preference String 首选项
+应该在哪个节点或分片上执行，默认再分片和副本间随机变化
+如果设置为_local 
 
 #  search
 [search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
