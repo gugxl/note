@@ -685,7 +685,42 @@ Object
 DELETE /{index}/_doc/{id}
 ```
 从索引中删除文档
+> 注意：不能直接将删除请求发送到数据流，要删除数据流中的文档，必须是包含该文档支持的索引为目标
 
+### Optimistic concurrency control 乐观并发控制
+删除可以设置为有条件的，并且仅当对文档的最后一次分配修改了`if_seq_no`和`if_primary_term`参数指定的序列号和主术语（`primary term`）才会执行索引操作。如果检测到不匹配，就会导致`VersionConflictException`并且状态码`409`。
+
+### Versioning  版本控制
+每个被索引的文档都有一个版本号。删除文档的时候，可以指定版本，以确保尝试删除的相关文档实际上正在被删除，并且在此期间没有更该。在文档上的每个写入操作（包括删除）都会导致版本递增。已删除的文档的版本号在删除后短时间仍然可用，以便控制并发。已经删除的文档保持可用时间有`index.gc_deletes`索引设置决定。
+
+### Routing 路由
+如果在索引期间指定了路由，则还需要指定路由才能删除文档。
+如果`_routing`映射设置为required并且未指定路由值，那么执行删除文档的时候会抛出`RoutingMissException`并拒绝请求。
+```http request
+DELETE /my-index-000001/_doc/1?routing=shard-1
+```
+这个请求就会删除ID为1的文档，但是会根据用户指定的路由，如果指定的路由不正确，就不会删除。
+
+### Distributed 分布式
+删除操作hash到对应的分片ID,然后重定向到这个分片的.在主分片完成操作后,如果需要,把更新分发到对应分片副本.
+
+### Required authorization 所需权限
+- Index privileges： delete
+
+### Path parameters 路径参数
+- index String Required
+- id String Required
+
+### Query parameters 查询参数
+- if_primary_term Number 主分片版本号一致才执行
+- if_seq_no Number 当文档的序列化是这个值的时候才执行
+- refresh String
+如果为 `true`，Elasticsearch 将刷新受影响的分片，使此作对搜索可见。如果 `wait_for`，它会等待刷新以使此作对搜索可见。如果为 `false`，则刷新不执行任何作。
+- routing String
+用于将路由到特定分片的自定义值。
+- timeout  String
+等待活动分片的时间段  
+参数适用于在删除的时候
 
 #  search
 [search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
