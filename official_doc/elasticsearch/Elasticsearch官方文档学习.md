@@ -5,21 +5,25 @@
 [最新版本](https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html)
 
 
-单机模式: [docker compose搭建elk 8.6.2](https://blog.csdn.net/zhazhagu/article/details/148619309)
+单机模式: [docker compose搭建elk 8.6.2](https://blog.csdn.net/zhazhagu/article/details/148619309)  
+
 集群模式:[使用docker compose 部署Elasticsearch 9.0.4集群 + kibana](https://blog.csdn.net/zhazhagu/article/details/149809217)
 
 使用最新版的进行学习,按照重要程度进行学习,先学习重要的
 
 # 快速开始
+
 [get-started](https://www.elastic.co/docs/solutions/search/get-started)
-https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-document
+
 ## 基础知识 
 [Index basics](https://www.elastic.co/docs/manage-data/data-store/index-basics)
+
 索引是Elasticsearch存储的基本单元.是名称或者别名唯一标识的文档的集合.所有的搜索和查询都要基于这个唯一标识.
 
 ### 索引组成
 #### 1.  文档 (Documents)
 使用json文档的形式序列化和存储数据.文档是一组字段,每个字段包含一个名称和值.每个文档都有唯一的ID,可以自己指定或者由Elasticsearch自动生成.
+
 示例:
 ```http request
 {
@@ -48,9 +52,11 @@ https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-document
 
 #### 2. 元数据字段(Metadata fields)
 元数据字段是存储有关文档信息的系统字段.在Elasticsearch中元数据字段的名称都以_开头.
+
 例如 :
-_index : 存储文档的索引名称
-_id : 文档的ID,在索引里面文档的id是唯一的
+- _index : 存储文档的索引名称
+- _id : 文档的ID,在索引里面文档的id是唯一的
+
 #### 3. 映射和数据类型(Mappings and data types)
 每个索引都有一个映射或模式,用于说明如何对文档中的字段进行索引.映射定义了索引的类型、字段的索引方式以及存储方式.
 
@@ -59,6 +65,7 @@ PUT /semantic-index
 ```
 
 # 文档操作(Document)
+
 [Document](https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-document)
 
 ## 批量创建或者删除文档 (Bulk index or delete documents)
@@ -77,7 +84,7 @@ POST /_bulk?pretty
 {"index":{"_index":"test","_id":"1"}}{"field1":"value1"}{"delete":{"_index":"test","_id":"2"}}{"create":{"_index":"test","_id":"3"}}{"field1":"value3"}{"update":{"_index":"test","_id":"1"}}{"doc":{"field2":"value2"}}
 ```
 
-批量update 可以使用retry_on_conflict 指定版本冲突重试次数
+批量`update` 可以使用`retry_on_conflict` 指定版本冲突重试次数
 ```http request
 POST /_bulk?pretty
 { "update" : {"_id" : "1", "_index" : "index1", "retry_on_conflict" : 3} }{ "doc" : {"field" : "value"} }{ "update" : { "_id" : "0", "_index" : "index1", "retry_on_conflict" : 3} }{ "script" : { "source": "ctx._source.counter += params.param1", "lang" : "painless", "params" : {"param1" : 1}}, "upsert" : {"counter" : 1}}{ "update" : {"_id" : "2", "_index" : "index1", "retry_on_conflict" : 3} }{ "doc" : {"field" : "value"}, "doc_as_upsert" : true }{ "update" : {"_id" : "3", "_index" : "index1", "_source" : true} }{ "doc" : {"field" : "value"} }{ "update" : {"_id" : "4", "_index" : "index1"} }{ "doc" : {"field" : "value"}, "_source": true}
@@ -95,31 +102,31 @@ POST /_bulk
 { "index" : { "_index" : "my_index", "_id" : "1", "dynamic_templates": {"work_location": "geo_point"}} }{ "field" : "value1", "work_location": "41.12,-71.34", "raw_location": "41.12,-71.34"}{ "create" : { "_index" : "my_index", "_id" : "2", "dynamic_templates": {"home_location": "geo_point"}} }{ "field" : "value2", "home_location": "41.12,-71.34"}
 ```
 
-在单个请求中执行多个 index、create、delete 或 update 操作,可以减少开销,提高索引速度.
+在单个请求中执行多个 `index`、`create`、`delete` 或 `update` 操作,可以减少开销,提高索引速度.
 
 如果开启了权限功能,需要的权限说明
-- create操作: create_doc、create、index、 write index权限;数据流只支持create操作
-- index操作: create、index或write index权限;
-- delete操作: delete、write index权限;
-- update操作: index或write index权限;
-- 批量API自动创建数据流或索引:auto_configure、create_index或者manage index权限;
-- 使用refresh让批量操作对搜索结果可见:maintenance或manage index权限;
+- create操作: `create_doc`、`create`、`index`、 `write index`权限;数据流只支持create操作
+- index操作: `create`、`index`或`write index`权限;
+- delete操作: `delete`、`write index`权限;
+- update操作: `index`或`write index`权限;
+- 批量API自动创建数据流或索引:`auto_configure`、`create_index`或者`manage index`权限;
+- 使用refresh让批量操作对搜索结果可见:`maintenance`或`manage index`权限;
 
 数据流自动创建需要启用数据流匹配的索引模版
 
-如果在批量请求的路径上指定了index，那么在所有没有指明_index的操作中都会使用这个索引
+如果在批量请求的路径上指定了`index`，那么在所有没有指明`_index`的操作中都会使用这个索引
 > Elasticsearch默认将HTTTP请求设置最大大小为100MB，因此在请求的时候必须保证请求小于这个大小。
 
 #### 乐观并发控制 Optimistic concurrency control
 
-批量API调用的每个index和delete在各自的动作和Meta数据行中包含if_seq_no和if_primary_term参数，使用if_seq_no和if_primary_term参数根据现有文档最后一次修改来控制操作的运行方法。
+批量API调用的每个`index`和`delete`在各自的动作和`Meta`数据行中包含`if_seq_no`和`if_primary_term`参数，使用`if_seq_no`和`if_primary_term`参数根据现有文档最后一次修改来控制操作的运行方法。
 
 
 #### 版本控制（version）
 每个批量操作都可以包含版本值。会根据_version映射自动匹配索引或者删除操作。也支持version_type操作
 
 #### 路由 Routing
-每个批量操作都支持`routing`字段，会根据_routing映射自动匹配对应的索引或者删除操作
+每个批量操作都支持`routing`字段，会根据`_routing`映射自动匹配对应的索引或者删除操作
 
 > 数据流不支持自定义路由除非在模版中启用` allow_custom_routing`设置创建的
 
@@ -134,17 +141,17 @@ POST /_bulk
 [参考文档](https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/indexing-speed#disable-refresh-interval)
 
 ### 路径参数 Path parameters
-index String 必须
+- `index` `String` 必须
 批量操作必须包含data stream或者索引或别名
 
 ### 查询参数
-**include_source_error** Boolean
+- **`include_source_error`** `Boolean`
 分析发生错误的时候错误消息是否包含源文档
 
-**list_executed_pipelines** Boolean
+- **`list_executed_pipelines`** `Boolean`
 true的时候响应包含每个索引或创建运行的管道
 
-**pipeline** String
+- **`pipeline`** `String`
 用于预处理传入文档的管道标识符。如果指定了默认的提取管道，则将该值设置为`_none`会关闭此请求的默认提取管道。如果配置了最终管道，则一直会保持运行。
 
 #### refresh String
@@ -160,7 +167,7 @@ true的时候响应包含每个索引或创建运行的管道
 从响应中排除的源字段。也可以从`_source_includes`查询参数中指定的子集中排除字段。如果`_source`是`false`，就会忽略这个参数。
 
 #### _source_includes String,Array[String]
-要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用_source_excludes，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
+要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用`_source_excludes`，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
 
 #### timeout String
 每个操作等待下一个操作的时间；自动索引创建、动态映射更新和等待活动分片。默认值是1min，保证Elasticsearch值失败之亲啊的至少等待超时。实际时间可能会更长，当发生多个等待的时候。
@@ -168,19 +175,19 @@ true的时候响应包含每个索引或创建运行的管道
 可以设置值是 0 代表不等待, -1 一直等待
 
 #### wait_for_active_shards Number | string
-批量操作必须等待至少多少个分片副本处于活动状态。可以设置为all或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`),默认是1,等待每个主分片处于活动状态.
+批量操作必须等待至少多少个分片副本处于活动状态。可以设置为`all`或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`),默认是1,等待每个主分片处于活动状态.
 
 #### require_alias Boolean
-true 代表必须是索引的别名
+`true` 代表必须是索引的别名
 
 #### require_data_stream Boolean
-true 代表操作的目标必须是数据流(已经存在或创建)
+`true` 代表操作的目标必须是数据流(已经存在或创建)
 
 ### Body Object Required
 
 #### OperationContainer Object
 
-**index** Object
+**`index`** Object
 - _id: String
 - _index: String
 - routing:  String
@@ -189,13 +196,13 @@ true 代表操作的目标必须是数据流(已经存在或创建)
 - version: Number
 - version_type: String 值可以是 internal, external, external_gte, force
 - dynamic_templates: Object 从字段全名匹配的动态模板,如果不存在就使用这个模版,如果已经存在就不处理.
-**dynamic_templates attribute** Object
+**`dynamic_templates attribute`** Object
 String
 - pipeline String
   用于预处理传入文档的管道标识符。如果指定了默认的提取管道，则将该值设置为`_none`会关闭此请求的默认提取管道。如果配置了最终管道，则一直会保持运行。
 - require_alias Boolean . true 代表必须是索引的别名,默认false
 
-**create** Object
+**`create`** Object
 跟index 完全一样
 - _id: String
 - _index: String
@@ -205,13 +212,13 @@ String
 - version: Number
 - version_type: String 值可以是 internal, external, external_gte, force
 - dynamic_templates: Object 从字段全名匹配的动态模板,如果不存在就使用这个模版,如果已经存在就不处理.
-  **dynamic_templates attribute** Object
+  **`dynamic_templates attribute`** Object
   String
 - pipeline String
   用于预处理传入文档的管道标识符。如果指定了默认的提取管道，则将该值设置为`_none`会关闭此请求的默认提取管道。如果配置了最终管道，则一直会保持运行。
 - require_alias Boolean . true 代表必须是索引的别名,默认false
 
-**update** Object
+**`update`** Object
 多出这个字段
 - retry_on_conflict:  Number 版本冲突重试的次数
 其他基本一样的字段
@@ -227,7 +234,7 @@ String
 - require_alias Boolean . true 代表必须是索引的别名,默认false
 
 
-**delete** Object
+**`delete`** Object
 - _id: String
 - _index: String
 - routing:  String
@@ -240,7 +247,7 @@ String
 200
 - errors Boolean Required .如果是true,批量请求中有一个或多个操作失败
 - items Array[Object] Required. 每个操作响应的结果,按照提交请求顺序
-attribute 如下
+`attribute` 如下
     - _id string | null
     - _index string Required
     - status number Required . http请求状态码
@@ -276,7 +283,7 @@ attribute 如下
 POST /{index}/_create/{id}
 PUT /{index}/_create/{id}
 ```
-使用_creat的时候需要保证{id}不存在,如果存在,则返回409错误
+使用`_creat`的时候需要保证{id}不存在,如果存在,则返回409错误
 
 示例
 ```http request
@@ -295,11 +302,11 @@ PUT my-index-000001/_create/1
 自动创建数据流需要启用数据流的匹配索引模版
 
 ### Automatically create data streams and indices 自动创建数据流或者索引
-如果请求的目标不存在,并且有与具有data_stream定义的索引模版匹配,则索引操作自动创建数据流.
+如果请求的目标不存在,并且有与具有`data_stream`定义的索引模版匹配,则索引操作自动创建数据流.
 如果目标不存在,没有与之匹配的数据流模版,那么就会自动创建索引,并应用任何匹配的索引模版
 如果不存在映射,索引操作会创建动态映射.默认情况,新的字段和对象会自添加到映射中.
 
-自动创建索引由`action.auto_create_index`控制,true可以创建任意索引,false是禁止, 可以使用多个逗号分割的模式,使用 + 或 - 前缀来标记允许或禁用模式.直接使用列表代表不允许.
+自动创建索引由`action.auto_create_index`控制,`true`可以创建任意索引,`false`是禁止, 可以使用多个逗号分割的模式,使用 + 或 - 前缀来标记允许或禁用模式.直接使用列表代表不允许.
 
 > `action.auto_create_index` 只影响索引的自动创建,不影响数据流的创建
 
@@ -316,7 +323,7 @@ PUT my-index-000001/_create/1
 ### Active shards 激活分片
 为了提高系统的写入的弹性,可以将索引的操作配置为在操作之前等待一定数量的活动分片副本.如果没有达到数量,写入操作必须等待或者重试,直到需要的分片副本已经启动或发送超时.默认情况下写操作只会等待主分片处于活动状态后才会继续(`wait_for_active_shards`是1).可以通过`index.write.wait_for_active_shards`参数进行覆盖配置配置.也可以直接在请求中携带参数`wait_for_active_shards`
 
-有效值范围是索引中每个分片配置的副本总数(number_of_replicas + 1)以内的所有或任意正整数.如果是负值或者大于分片副本数就会报错.
+有效值范围是索引中每个分片配置的副本总数`(number_of_replicas + 1)`以内的所有或任意正整数.如果是负值或者大于分片副本数就会报错.
 
 这个设置会降低写入操作的未写入所需分片副本的可能性,但是不能消除,因为这个检查发生在写操作之前,在写操作完成之后,复制可能在任何数量的分片副本上失败,但是主分仍然是成功的,响应结果中`_shards`部分显示复制成功和失败的分片副本数量.
 
@@ -324,7 +331,7 @@ PUT my-index-000001/_create/1
 在使用API更新文档的时候,如果文档没有改变,也总是会创建文档的新副本,如果不能接受,那么在使用 `_update` API的时候设置`detect_noop`为true.但是创建文档的时候这个选项是不可用的,因为没有旧的 文档,就不能进行比较.
 
 ### Versioning 版本控制
-每个被索引的文档都有一个版本号。默认情况下使用内部版本控制，从1开始，随着每次更新（包括删除）递增。版本号也可以使用外部的值，这个时候应该把`version_type`设置为`external`。提供的值必须大于等于0小于9.2e+18的长整型数值.
+每个被索引的文档都有一个版本号。默认情况下使用内部版本控制，从1开始，随着每次更新（包括删除）递增。版本号也可以使用外部的值，这个时候应该把`version_type`设置为`external`。提供的值必须大于等于`0`小于`9.2e+18`的长整型数值.
 
 > 版本控制是完全实时的，搜索是近实时的，如果没有提供版本，那么就不会进行任何版本检查
 
@@ -354,12 +361,12 @@ PUT my-index-000001/_doc/1?version=2&version_type=external
 - if_seq_no Number
 仅当文档具有此序号时才执行此操作
 - include_source_on_error Boolean
-当值为ture，当索引文档出现解析错误（parsing error）的时候，错误消息会包含整个文档的`_source`内容
-当值为false，错误信息不包含`_source`，只显示错误原因。
+当值为`ture`，当索引文档出现解析错误`（parsing error）`的时候，错误消息会包含整个文档的`_source`内容
+当值为`false`，错误信息不包含`_source`，只显示错误原因。
 > 为什么有这个选项，1. **方便调试**，2. **安全考虑**，文档中有敏感信息，可以设置为false，3. 性能考虑可以设置为false减少响应数据量
 - op_type String
-设置为create，仅当文档不存在的时候索引文档，如果指定了_id的文档已经存在了，索引操作将失败。操作跟 <index>/_create一致。如果指定了文档的id，则参数默认为index。否则默认为create。如果请求的目标是数据流，则需要op_type为create
-取值 为 【 index ｜ create 】，分别代表覆盖任何已经存在的文档，仅索引不存在的文档。
+设置为`create`，仅当文档不存在的时候索引文档，如果指定了`_id`的文档已经存在了，索引操作将失败。操作跟 `<index>/_create`一致。如果指定了文档的id，则参数默认为`index`。否则默认为`create`。如果请求的目标是数据流，则需要`op_typ`e为`create`
+取值 为 `【 index ｜ create 】`，分别代表覆盖任何已经存在的文档，仅索引不存在的文档。
 - pipeline String
   用于预处理传入文档的管道标识符。如果指定了默认的提取管道，则将该值设置为`_none`会关闭此请求的默认提取管道。如果配置了最终管道，则一直会保持运行。
 - refresh String
@@ -367,7 +374,7 @@ PUT my-index-000001/_doc/1?version=2&version_type=external
 - routing String
   用于将操作路由到也定的分片的自定义值
 - timeout String
-请求等待以下操作的时间；自动索引创建、动态映射更新和等待活动分片。默认值是1min，保证Elasticsearch值失败之亲啊的至少等待超时。实际时间可能会更长，当发生多个等待的时候。
+请求等待以下操作的时间；自动索引创建、动态映射更新和等待活动分片。默认值是`1min`，保证Elasticsearch值失败之亲啊的至少等待超时。实际时间可能会更长，当发生多个等待的时候。
 
 可以设置值是 0 代表不等待, -1 一直等待
 - version Number 
@@ -378,12 +385,12 @@ PUT my-index-000001/_doc/1?version=2&version_type=external
   - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
   - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
   - force 已经弃用，因为可能导致 主分片和副本分片分离 
-  - wait_for_active_shards Number | string
-    批量操作必须等待至少多少个分片副本处于活动状态。可以设置为all或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`),默认是1,等待每个主分片处于活动状态.
-  - require_alias Boolean
-    true 代表必须是索引的别名 
-  - require_data_stream Boolean 
-     true 代表操作的目标必须是数据流(已经存在或创建)
+- wait_for_active_shards Number | string
+  批量操作必须等待至少多少个分片副本处于活动状态。可以设置为`all`或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`),默认是1,等待每个主分片处于活动状态.
+- require_alias Boolean
+  true 代表必须是索引的别名 
+- require_data_stream Boolean 
+   true 代表操作的目标必须是数据流(已经存在或创建)
 ### Body Object Required 
 ### Responses
 200 
@@ -408,7 +415,7 @@ PUT my-index-000001/_doc/1?version=2&version_type=external
     - _version  number
     - forced_refresh  boolean
   
-s示例
+示例
 ```http request
 PUT my-index-000001/_create/1
 {
@@ -442,7 +449,7 @@ GET /{index}/_doc/<id>
 ```
 从索引中获取文档
 
-默认情况下是实时的,不受刷新率影响.在使用`stored_fields`参数请求存储字段并且文档已经更新但尚未刷新的情况下，API必须解析和分析源以存储字段.如果需要关闭可以把realtime参数设置为false.
+默认情况下是实时的,不受刷新率影响.在使用`stored_fields`参数请求存储字段并且文档已经更新但尚未刷新的情况下，API必须解析和分析源以存储字段.如果需要关闭可以把`realtime`参数设置为`false`.
 
 Source filtering
 默认情况下,API返回_source字段的内容,除非使用了`stored_fields`或者`_source`字段被关闭,可以使用`_source`来关闭
@@ -460,10 +467,10 @@ Routing 路由
 ```http request
 GET my-index-000001/_doc/2?routing=user1
 ```
-此请求获取ID为2的文档，但它是根据用户路由的。如果未指定正确的路由，则不会获取文档。但是如果分片是一样的时候也是可以获取数据的（）
+此请求获取ID为2的文档，但它是根据用户路由的。如果未指定正确的路由，则不会获取文档。但是如果分片是一样的时候也是可以获取数据的
 
 Distribute 分布式
-GET操作被散列到分片Id上，然后这个分片的所有副本都可以返回结果。也意味着副本越多，GET请求的伸缩性就越好。
+`GET`操作被散列到分片`Id`上，然后这个分片的所有副本都可以返回结果。也意味着副本越多，GET请求的伸缩性就越好。
 
 Version Support 版本控制支持
 当文档版本等于当前查询指定的版本，才能检索出文档
@@ -471,7 +478,7 @@ Version Support 版本控制支持
 
 Required authorization
 
-索引的read权限
+索引的`read`权限
 
 Path parameters 路径参数
 - index String required 索引名称
@@ -480,11 +487,11 @@ Path parameters 路径参数
 Query parameters 查询参数
 - preference String 首选项
 应该在哪个节点或分片上执行，默认再分片和副本间随机变化
-如果设置为_local,则操作优先中本地分配的分片上执行。如果设置为自定义值，则该值用于确保相同的自定义值用于相同的分片，有助于在不同的刷新状态下访问不同分片时进行“跳跃值”操作。例如可以使用web session ID或者用户名。
+如果设置为_local,则操作优先中本地分配的分片上执行。如果设置为自定义值，则该值用于确保相同的自定义值用于相同的分片，有助于在不同的刷新状态下访问不同分片时进行“跳跃值”操作。例如可以使用`web session ID`或者用户名。
 - realtime boolean
 true的时候请求是实时的，而不是近实时的。
 - refresh Boolean
-如果是true，会在请求检索文档之前刷新相关分片。需要考虑并确认这个操作不会给系统造成过重负载。
+如果是`true`，会在请求检索文档之前刷新相关分片。需要考虑并确认这个操作不会给系统造成过重负载。
 - routing String
 用于将操作路由到特定分片的自定义值
 - _source Boolean | String | Array[String]
@@ -492,11 +499,11 @@ true的时候请求是实时的，而不是近实时的。
 - _source_excludes String | Array[String]
   从响应中排除的源字段。也可以从`_source_includes`查询参数中指定的子集中排除字段。如果`_source`是`false`，就会忽略这个参数。
 - _source_exclude_vectors Boolean 在9.2.0版本中添加
-是否应从_source排除向量
+是否应从`_source`排除向量
 - _source_includes String,Array[String]
   要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用_source_excludes，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
 - stored_fields String|Array[String]
-以逗号分隔存储的字段列表，作为命中的一部分返回。如果没有指定字段，那么响应中不包含任何存储字段。如果指定了这个字段，则_source字段默认为false。使用stored_fields只能检索叶子字段。不能返回对象字段；如果指定对象字段就会请求失败。
+以逗号分隔存储的字段列表，作为命中的一部分返回。如果没有指定字段，那么响应中不包含任何存储字段。如果指定了这个字段，则`_source`字段默认为`false`。使用`stored_fields`只能检索叶子字段。不能返回对象字段；如果指定对象字段就会请求失败。
 - Version Number 版本号
   用于并发控制的版本号，当文档版本等于当前查询指定的版本，才能检索出文档
 - version_type String
@@ -516,7 +523,7 @@ true的时候请求是实时的，而不是近实时的。
 - _primary_term Number 索引分配给文档的主要标识符
 - _routing String 显示路由[如果设置]
 - _seq_no Number
-- _source Object  如果found是true，则包含json格式的文档数据，如果_source参数设置为false或者stored_fields是true，就排除这个参数
+- _source Object  如果`found`是`true`，则包含json格式的文档数据，如果`_source`参数设置为`false`或者`stored_fields`是`true`，就排除这个参数
 - _version 版本号
 
 示例
@@ -547,9 +554,137 @@ PUT /{index}/_doc/{id}
 > 不能使用此API发送数据流现有文档的更新请求。
 
 如果启用了安全功能。就需要对目标数据流，索引或索引别名具有以下的索引权限：
-- 使用 PUT /<target>/_doc/<_id> 请求格式添加或者覆盖文档，必须要有create、index或write索引权限
-- 使用 POST /{index}/_doc 
+- 使用 `PUT /<target>/_doc/<_id>` 请求格式添加或者覆盖文档，必须要有`create`、`index`或`write`索引权限
+- 使用 `POST /<target>/_doc/` 请求格式添加文档，必须要有`create`、`create_doc`、`index`或`write`索引权限
+- 如果需要自动创建数据流或者索引，必须要有`auto_config`、`create_index`或者`manage` 索引权限
 
+自动创建数据流需要启用数据流的匹配索引模版
+
+> 索引成功返回时，副本分片可能不是完全启动的，可以通过参数 wait_for_active_shards 修改默认行为。
+
+### Automatically create data streams and indices 自动创建数据流和索引
+如果请求的目标不存在，并且有`data_stream`定义的索引模版匹配，索引会自动创建数据流
+
+如果目标不存在，并且没有数据流模版匹配，就会自动创建索引，并且应用任何匹配的索引模版
+
+如果不存在映射，索引会自动创建映射，默认情况下，新字段会添加到映射里面
+
+自动创建索引由`action.auto_create_index`控制,`true`可以创建任意索引,`false`是禁止, 可以使用多个逗号分割的模式,使用 + 或 - 前缀来标记允许或禁用模式.直接使用列表代表不允许.
+
+> `action.auto_create_index` 只影响索引的自动创建,不影响数据流的创建
+
+### optimistic concurrency control 乐观并发控制
+索引可以设置为有条件的，并且仅当对文档的最后一次分配修改了`if_seq_no`和`if_primary_term`参数指定的序列号和主术语（`primary term`）才会执行索引操作。如果检测到不匹配，就会导致`VersionConflictException`并且状态码`409`。
+
+### Routing 路由
+默认情况下分片的位置(或者路由)是使用文档的ID值的散列来控制.对于显示的控制,可以使用`routing`参数来显式控制,直接指定路由器使用的hash函数的值.
+在使用显示映射时,可以使用`_routing`参数来指定索引操作从文档中获取路由值,但是需要额外解析文档(代价也比较小).如果定义了`_routing`设置,并且设置为必须,如果没有提供或提取路由值,那么索引操作就会失败.
+
+> 数据流不支持自定义路由除非在模版中启用` allow_custom_routing`设置创建的
+
+### Distributed 分布式
+索引操作根据主分片的路由定位到主分片,并且在该分片的实际节点上执行.在主分片完成操作后,如果需要,把更新分发到合适的副本.
+
+### Active shards 激活分片
+为了提高系统的写入的弹性,可以将索引的操作配置为在操作之前等待一定数量的活动分片副本.如果没有达到数量,写入操作必须等待或者重试,直到需要的分片副本已经启动或发送超时.默认情况下写操作只会等待主分片处于活动状态后才会继续(`wait_for_active_shards`是1).可以通过`index.write.wait_for_active_shards`参数进行覆盖配置配置.也可以直接在请求中携带参数`wait_for_active_shards`
+
+### No operation (noop) update
+在使用API更新文档的时候,如果文档没有改变,也总是会创建文档的新副本,如果不能接受,那么在使用 `_update` API的时候设置`detect_noop`为true.但是创建文档的时候这个选项是不可用的,因为没有旧的 文档,就不能进行比较.
+
+每个被索引的文档都有一个版本号。默认情况下使用内部版本控制，从1开始，随着每次更新（包括删除）递增。版本号也可以使用外部的值，这个时候应该把`version_type`设置为`external`。提供的值必须大于等于0小于9.2e+18的长整型数值.
+
+> 版本控制是完全实时的，搜索是近实时的，如果没有提供版本，那么就不会进行任何版本检查
+
+当使用外部版本类型时，系统检查传递给索引请求的版本号是否大于当前存储文档的版本。如果大于，对文档进行索引并且使用新的版本号。如果小于或者等于，就会发生版本冲突，索引操作失败。
+```http request
+PUT my-index-000001/_doc/1?version=2&version_type=external
+{
+  "user": {
+    "id": "elkbee"
+  }
+}
+```
+上面的示例会正常执行，但是当重复执行的时候，因为提供的版本号不大于当前文档的版本，就会出现版本冲突，`http 409`状态
+
+### Path parameters 路径参数
+- index String 必须
+要定位的数据流或者索引的名称，如果目标不存在，并且与具有`data_stream`定义的索引模版的名称或者通配符（*）模式匹配，则此请求就会创建数据流。如果模版不存在，且没有对应的数据流模版，那么就会创建索引。可以使用解析索引检查索引是否存在。
+- id String required
+  文档的唯一标识。如果需要自动生成文档id，可以生路id字段进行创建如 `POST /<target>/_doc/`并省略这个参数。
+
+### Query parameters 查询参数
+- if_primary_term Number
+  只有在主分片任期（`primary term`）与请求中的值完全匹配的时候，才会执行这次操作，否则拒绝。
+- if_seq_no Number
+  仅当文档具有此序号时才执行此操作
+- include_source_on_error Boolean
+  当值为ture，当索引文档出现解析错误（parsing error）的时候，错误消息会包含整个文档的`_source`内容
+  当值为false，错误信息不包含`_source`，只显示错误原因。
+> 为什么有这个选项，1. **方便调试**，2. **安全考虑**，文档中有敏感信息，可以设置为false，3. 性能考虑可以设置为false减少响应数据量
+- op_type String
+  设置为`create`，仅当文档不存在的时候索引文档，如果指定了_id的文档已经存在了，索引操作将失败。操作跟` <index>/_create`一致。如果指定了文档的id，则参数默认为index。否则默认为create。如果请求的目标是数据流，则需要op_type为create
+  取值 为 【` index ｜ create` 】，分别代表覆盖任何已经存在的文档，仅索引不存在的文档。
+- pipeline String
+  用于预处理传入文档的管道标识符。如果指定了默认的提取管道，则将该值设置为`_none`会关闭此请求的默认提取管道。如果配置了最终管道，则一直会保持运行。
+- refresh String
+  如果`true`,Elasticsearch会刷新受影响的分片，只对搜索可见。如果是`wait_for`，等待刷新以使这个操作可以提供搜索。如果是`false`，就不刷新。
+- routing String
+  用于将操作路由到也定的分片的自定义值
+- timeout String
+  请求等待以下操作的时间；自动索引创建、动态映射更新和等待活动分片。默认值是`1min`，保证Elasticsearch值失败之亲啊的至少等待超时。实际时间可能会更长，当发生多个等待的时候。
+
+可以设置值是 0 代表不等待, -1 一直等待
+- version Number
+  跟之前的一样是非负的长整数
+- version_type String
+  值可以是
+    - internal, 内部控制，从1开始，每次更新或删除时递增
+    - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+    - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+    - force 已经弃用，因为可能导致 主分片和副本分片分离
+- wait_for_active_shards Number | string
+  批量操作必须等待至少多少个分片副本处于活动状态。可以设置为all或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`),默认是1,等待每个主分片处于活动状态.
+- require_alias Boolean
+  true 代表必须是索引的别名
+- require_data_stream Boolean
+  true 代表操作的目标必须是数据流(已经存在或创建) 
+
+### Body Required 
+Object
+
+### Responses
+200
+- _id String Required
+- _index String Required
+- _primary_term number. 操作成功的时候有值,操作的主分片的任期号
+- result string. 操作的结果,值可能出现的范围:[created | updated | deleted | not_found | noop]
+- _seq_no number
+- _shards Object.
+    - failed number Required
+    - successful number Required
+    - total number Required
+    - failures Array[Object]
+      - index String
+      - node String
+      - reason Object Required
+        - type String Required
+        - reason String | Null
+        - stack_trace String
+        - cased_by Object
+        - root_cause Array[Object]
+        - suppressed Array[Object]
+      - shard Number Required
+      - status String
+    - skipped number
+- _version  number
+- forced_refresh  boolean
+
+## Delete a document 删除文档
+格式
+```http request
+DELETE /{index}/_doc/{id}
+```
+从索引中删除文档
 
 
 #  search
