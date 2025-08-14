@@ -720,7 +720,130 @@ DELETE /my-index-000001/_doc/1?routing=shard-1
 用于将路由到特定分片的自定义值。
 - timeout  String
 等待活动分片的时间段  
-参数适用于在删除的时候
+参数适用于在删除操作运行的时候分配给执行操作的主分片可能不可用的情况。造成这种情况的一般原因是主分片正在从存储中恢复或正在重定位。默认情况下，时间是1min，然后会失败响应错误。
+可以使用 0 代表不等待, -1 一直等待
+- version Number
+用于并发控制的显式版本号。它必须与文档的当前版本匹配，请求才能成功。
+- version_type String
+  值可以是
+    - internal, 内部控制，从1开始，每次更新或删除时递增
+    - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+    - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+    - force 已经弃用，因为可能导致 主分片和副本分片分离
+- wait_for_active_shards Number | string
+  批量操作必须等待至少多少个分片副本处于活动状态。可以设置为all或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`),默认是1,等待每个主分片处于活动状态.
+
+### Response 
+200
+- _id String Required
+- _index String Required
+- _primary_term Number 分配给索引的主分片的年代号 【自己翻译的，主分片在变更的时候这序号会递增，防止数据变脏】
+- result String Required 值是 `create`、`updated`、`deleted`、`not_found`、`noop`
+- _seq_no Number 
+- _shards Object Object
+  - failed Number Required
+  - successful Number Required
+  - total Number Required
+  - failures Array[object]
+    - index String
+    - node String
+    - reason Object Required
+      - type String Required
+      - reason String | Null
+      - stack_trace String
+      - cased_by Object
+      - root_cause Array[Object]
+      - suppressed Array[Object]
+      - shard Number Required
+      - status String
+    - skipped number
+- _version  number
+- forced_refresh  boolean
+
+```http request
+DELETE /my-index-000001/_doc/1
+```
+```JSON
+{
+  "_shards": {
+    "total": 2,
+    "failed": 0,
+    "successful": 2
+  },
+  "_index": "my-index-000001",
+  "_id": "1",
+  "_version": 2,
+  "_primary_term": 1,
+  "_seq_no": 5,
+  "result": "deleted"
+}
+```
+
+## Check a document 检查文档【是否存在】
+格式
+```http request
+HEAD /{index}/_doc/{id}
+```
+检测文档是否存在，例如检查`_id`为0的文档是否存在
+```http request
+HEAD my-index-000001/_doc/0
+```
+如果文档存在就会返回状态码200，不存在返回状态码404
+
+### Version support 版本控制
+当且版本等于指定版本的时候才会返回  
+
+在内部，Elasticsearch将旧的版本设置为已删除，并且添加一个全新的文档。旧文档的版本不会立即消失，尽管无法访问他。Elasticsearch会在后台清理已经删除的文档。
+
+### Path parameter 路径参数
+- index String  Required 以逗号分割的数据流，索引和别名列表。支持通配符（*）
+- id String Required 文档的唯一标识
+
+### Query parameter 查询参数
+- preference String
+应在哪个节点或分片上执行。默认情况在分片和副本之间随机。
+如果设置为_local,则操作优先中本地分配的分片上执行。如果设置为自定义值，则该值用于确保相同的自定义值用于相同的分片，有助于在不同的刷新状态下访问不同分片时进行“跳跃值”操作。例如可以使用`web session ID`或者用户名。
+- realtime boolean
+  true的时候请求是实时的，而不是近实时的。
+- refresh Boolean
+  如果是`true`，会在请求检索文档之前刷新相关分片。需要考虑并确认这个操作不会给系统造成过重负载。
+- routing String
+  用于将操作路由到特定分片的自定义值
+- _source Boolean | String | Array[String]
+  标识返回是否包含`_source`字段（true或false）或列出要返回的字段
+- _source_excludes String | Array[String]
+  从响应中排除的源字段。也可以从`_source_includes`查询参数中指定的子集中排除字段。如果`_source`是`false`，就会忽略这个参数。
+- _source_exclude_vectors Boolean 在9.2.0版本中添加
+  是否应从`_source`排除向量
+- _source_includes String,Array[String]
+  要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用_source_excludes，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
+- stored_fields String|Array[String]
+  以逗号分隔存储的字段列表，作为命中的一部分返回。如果没有指定字段，那么响应中不包含任何存储字段。如果指定了这个字段，则`_source`字段默认为`false`。使用`stored_fields`只能检索叶子字段。不能返回对象字段；如果指定对象字段就会请求失败。
+- Version Number 版本号
+  用于并发控制的版本号，当文档版本等于当前查询指定的版本，才能检索出文档
+- version_type String
+  值可以是
+    - internal, 内部控制，从1开始，每次更新或删除时递增
+    - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+    - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+    - force 已经弃用，因为可能导致 主分片和副本分片分离
+
+### Response 响应
+200
+
+## Delete document 删除文档
+格式
+```http request
+POST /{index}/_delete_by_query
+```
+删除指定查询匹配的文档
+
+如果启用了Elasticsearch安全功能，必须对目标数据流、索引和别名具有以下索引权限
+- read
+- delete 或 write
+可以使用与查询一样的语法在请求URI或者请求正文中指定查询条件。当提交通过查询删除文档的请求时，Elasticsearch会开始处理获取数据流或索引的快照，并使用内部版本控制删除匹配的文档。如果文档在快照和处理删除之间发生改变，则会导致版本冲突，并且删除失败。
+> 注意版本等于0的文档无法使用“通过查询删除”删除，因为内部版本控制不支持0作为有效版本号
+
 
 #  search
 [search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
