@@ -851,7 +851,50 @@ POST /{index}/_delete_by_query
 ### Throttling delete requests 限制删除请求
 如果要控制查询删除的批量删除请求的速率，可以把`requests_per_second`设置为任何正十进制数字。这会为每个批次填充等待时间以限制速率。将`requests_per_second`设置为`-1`可以禁用限制。
 
-限制使用批处理之间的等待时间，以便可以为内部滚动请求提供一个超时，该超时将请求填充考虑在内
+限制使用批处理之间的等待时间，以便可以为内部`scroll`请求提供一个超时，该超时将请求等待时间（`padding time`）考虑在内.填充时间是`batch size`除以`requests_per_second`与写入所花费的时间之间的差值。默认情况下，批量处理大小为1000条数据，如果将`requests_per_second`设置为500：
+```
+target_time = 1000 / 500 （per second = 2 seconds）
+wait_time = target_time - write_time = 2 seconds - 0.5 seconds = 1.5 seconds
+```
+由于批次是作为单个`_bulk`,因此大批量会导致Elasticsearch创建许多请求，并且在开发下一组之前等待。这个是突发而不是平滑。
+
+### Slicing 切片
+按查询删除支持切片并滚动以并行化删除过程。这样可以提高效率，并提供一种将请求分解为更小部分的便捷方法。
+
+将切片设置为`auto`,允许Elasticsearch选择要使用的切片（`slice`）数量。此设置将每个分片(shard)分配一个切片，但是有最大限制。如果有多个源数据流或索引，他将根据分片数量最少的索引或底层索引（`backing index`）来选择切片数量。将切片添加到“通过查询删除”作为创建子请求，因此他有一些特殊的行为。
+- 可以在任务API中查看这些请求，这些子请求是具有切片的请求的任务的子任务
+- 获取具有切片请求的任务状态仅包含已经完成的切片的状态
+- 这些子请求（sub-requests）是可以单独访问/操作的，比如可以单独取消他们，或者重新调整他们的限速（rethrottling）
+- 重新限流请求 `slices`将按比例重新限流未完成的子请求
+- 取消`slices`将取消每个子请求
+- 由于`slices`的性质，每个子请求不会得到完全均匀的文档分配，所有文档都将被处理，但是某些切片会比别的切片更大。预期较大的切片会有更均匀的分布。
+- 在带有`slices`的请求中，参数 `requests_per_second`和 `max_doc`将按比例分配给每个子请求。结合之前关于分配可能不均匀这一点，你应该得出结论，使用`max_docs`和`slices`结合可能不能导致恰好删除 max_docs整个文档。
+- 每个子请求都会得到data stream或索引略有不同的快照，尽管这些快照是在大约相同时间获取的。
+
+如果你是手动切片或者以其他方式调整自动切片，需要注意下面几点
+- 查询性能在切片数量等于索引或底层索引的分片数量的时候最高。如果数字很大（例如500），应该选择比较小的数字，因为过多的 `slices`会影响性能，将`slices`的数量设置为高于分片的数量的值通常不会提高效率，反而会增加额外开销。
+- 删除性能随可用资源的切片数量线性提高
+
+查询性能还是删除性能在运行时占主导地位，取决于重新索引的文档和集群资源
+
+### Cancel a delete by query operation 取消删除查询操作
+任何删除查询操作都可以通过API进行取消
+```http request
+POST _tasks/r1A2WoRbTwKZ516z6NEs5A:36619/_cancel
+```
+可以通过获取任务的API来找到任务ID.
+取消操作应该迅速完成，但是可能需要几秒执行时间。获取任务状态的API会继续列出通过删除查询的任务，直达该任务检查到自己已经被取消并且自动终止。
+
+### Required authorization 需要授权
+- Index privileges： read、delete
+
+### Path parameters 路径参数
+- index String|Array[String]  Required
+
+要搜索的数据流、索引和索引别名的逗号分割列表，支持通配符（`*`），要搜索所有数据流或索引，可以省略参数或使用`*`或者使用 `_all`
+
+### Query parameters 查询参数
+- allow_no_indices Boolean 
 
 #  search
 [search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
