@@ -895,6 +895,53 @@ POST _tasks/r1A2WoRbTwKZ516z6NEs5A:36619/_cancel
 
 ### Query parameters 查询参数
 - allow_no_indices Boolean 
+如果是`false`,当任何通配符表达式、索引别名或`_all`值仅针对缺失或已经关闭的索引时，，请求返回错误。即使请求针对其他开放索引，规则也适用。如果一个索引是以 `foo` 开头，但是没有以 `bar` 开头的索引，那么针对 `foo*,bar*` 请求将会返回错误.
+- analyzer String 分析器
+用于查询字符串的分析器，当且仅当指定了 `q`查询字符串参数时才可以使用。
+-  analyze_wildcard Boolean
+如果是 `true`则分析通配符和前缀查询。当且仅当指定了 `q`查询字符串参数时才可以使用。
+  - conflicts String
+  如果通过查询删除的时候遇见版本冲突该怎么办：`abort` 还是 `proceed`
+  Supported values include 支持的值包括
+    - abort：如果存在冲突，就停止重新索引
+    - proceed： 即使纯真冲突也继续重新索引
+- default_operator String
+查询字符串默认运算符：`AND` 或 `OR` 。当且仅当指定了 `q`查询字符串参数时才可以使用。
+- df String 当查询的字符串中为提供字段前缀时，用作默认字段的字段。当且仅当指定了 `q`查询字符串参数时才可以使用。
+- expand_wildcards String ｜ Array[String] 通配符模式可以匹配的索引的类型。如果请求可以定位数据流。支持逗号分隔的值，eg `open,hidden`.支持的值包括：
+  - all ： 匹配任何的数据流和索引，包含隐藏的数据流和索引
+  - open： 匹配开放的非隐藏的索引和数据流
+  - closed；匹配已关闭的非隐藏索引。也匹配任意非隐藏的数据流。数据流无法关闭。
+  - hidden：匹配隐藏的数据流和隐藏的索引。必须与 `open`、`close`或 `both`结合使用
+  - none: 不接受通配符表达式
+- form Number 跳过指定数量的文档
+- ignore_unavailable Boolean：忽略不可用，如果是`false`,当请求针对缺失或关闭的索引时，返回错误。
+- lenient Boolean：如果是`true`,查询字符串基于格式的查询失败（例如，向数字字段提供文本）将被忽略。当且仅当指定了 `q`查询字符串参数时才可以使用。
+- max_docs Number ：需要处理的最大文档数。默认所有文档。如果设置小于或等于`scroll_size`值，则不会使用滚动来检索操作的结果。
+- preference String：执行操作的节点或分片，默认是随机的
+- refresh Boolean：
+  如果为 `true`，Elasticsearch会在请求完成后刷新`delete by`查询中涉及的所有分片。这个和delete API的refresh参数不同，后者仅刷新收到删除请求的分片。并且这里不支持 `wait_for`。
+- request_cache Boolean： 如果是true，表示请求中使用请求缓存。默认是索引级别的设置。
+- requests_per_second Number：每秒请求数量，请求的限制（以每秒子请求数量计算）
+- routing String：用于将操作路由到特定分片的自定义值。
+- q String：Lucene 查询字符串语法中的查询。
+- scroll String：保留搜索上下文以进行滚动的时间段，可以是 -1 或 0 
+- scroll_size Number：支持该操作的滚动请求的大小。
+- search_timeout String：每次搜索请求的显式超时时间，默认无超时。可以为`0`或`-1`
+- search_type String: 搜索操作的类型。可以选`query_then_fetch` 和 `dfs_query_then_fetch`
+  -  query_then_fetch:文档的打分是基于分片内的本地词频和文档频率来计算的。这种方式通常更快，但准确性较低
+  - dfs_query_then_fetch：使用所有分片中的全局词频和文档频率对文档进行评分。这种速度较慢，但更准确。
+- slices Number｜String 切片数，可以为auto或数字（该任务应该划分的切片数）
+- sort Array[String] ：以逗号分隔的 `<field>:<direction>`的列表
+- stats Array[String]:用于记录和统计目的的请求的特定的`tag`
+- terminate_after : 每个分片可收集的最大文档数。如果查询达到这个限制，Elasticsearch会提前终止查询。Elasticsearch会在排序之前收集文档。需要谨慎使用。Elasticsearch会将此参数应用与处理请求的每个分片。如果可能，请让Elasticsearch自动执行提前终止。如果请求的目标数据流包含跨很多歌数据层的支持索引，请避免使用这个参数。
+- timeout String：每个删除请求等待活动分片的时间，可以为 `-1` 或 `0 `
+- version Boolean:如果是`true`则返回文档版本作为匹配的一部分
+- wait_for_active_shards Number|String
+  继续操作之前必须等待至少多少个分片副本处于活动状态。可以设置为`all`或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`)。`timeout`值控制每个写入win各位iu放入哪个粉丝不可用分片的可用时间,值可以是 `all` 或 `index_setting`.
+- wait_for_completion Boolean
+如果是`true`,请求会被阻塞，直到操作完成。如果是 `false`,Elasticsearch会执行一些预检查，启动请求，并返回一个任务，可以使用该任务取消或获取其状态。Elasticsearch会值 .tasks
+
 
 #  search
 [search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
