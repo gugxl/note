@@ -940,7 +940,124 @@ POST _tasks/r1A2WoRbTwKZ516z6NEs5A:36619/_cancel
 - wait_for_active_shards Number|String
   继续操作之前必须等待至少多少个分片副本处于活动状态。可以设置为`all`或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`)。`timeout`值控制每个写入win各位iu放入哪个粉丝不可用分片的可用时间,值可以是 `all` 或 `index_setting`.
 - wait_for_completion Boolean
-如果是`true`,请求会被阻塞，直到操作完成。如果是 `false`,Elasticsearch会执行一些预检查，启动请求，并返回一个任务，可以使用该任务取消或获取其状态。Elasticsearch会值 .tasks
+如果是`true`,请求会被阻塞，直到操作完成。如果是 `false`,Elasticsearch会执行一些预检查，启动请求，并返回一个任务，可以使用该任务取消或获取其状态。Elasticsearch会在 .tasks/task/${taskId}中创建此任务的记录作为文档。完成任务后，可以删除这个任务文档，以便Elasticsearch回收空间。
+
+### Body Required
+- max_docs Number： 要删除的最大文档数
+- query Object：定义Elasticsearch查询DSL对象
+[参考文档](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl)
+- slice Object
+  - field String：字段路径或路径数组。某些API支持在路径中使用通配符来选择多个字段
+  - id String：Required
+  - max Number：Required
+
+### Response
+200
+- batches Number：通过删除查询时，滚动查询（scroll）返回的响应数量
+- deleted Number：成功删除的文档数量
+- failures Array[object]: 如果在过程中出现任何不可恢复的错误，就会包含一系列的失败。如果数组不为空，那么请求由于这些失败而异常结束。通过查询删除是通过批量实现的，任何失败都会导致整个过程结束，但当前批次的全部失败都会被收集到该数组，可以使用 `conflict`选项来方式由于版本冲突而重新索引的结束。
+  - cause Object Required：请求失败的成因和详细信息，定义了所有错误类型的共有属性，还提供了根据错误类型而变化的额外详细信息。
+    - type String Required：错误类型
+    - reason String ｜ Null
+    - stack_trace String ：服务器堆栈跟踪。仅当请求中包含` error_trace=true`参数时才显示。
+    - caused_by Object: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+    - root_cause Array｜Object：请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+    - suppressed Array[Object]: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+- id String Required
+- index String Required
+- status Number Required
+- noops Number：通过查询删除，这个字段的值是0。仅存在以便通过查询删除、通过查询更新和重新索引API返回相同的结构响应。
+- request_per_second Number：每秒请求数，通过查询删除期间每秒实际运行的请求数量
+- retries Object：
+  - bulk Number Required：重试的批量操作数量。
+  - search Number Required：重试搜索操作的数量
+- slice_id Number
+- task String
+- throttled String：一个持续时间。单位可以是 `nanos`、`micros`、`ms`、`s`、`m`、`h`和`d`。也可以使用没有单位的 `0` 和 `-1` 表示没有指定值。
+- throttled_unit_millis Number: 
+- timed_out Boolean: 如果是`true`一些删除查询操作期间运行的请求超时了
+- took Number：毫秒的时间单位
+- total Number：成功处理的文档数量
+- version_conflicts Number：版本冲突数量
+
+示例
+删除所有文档
+```http request
+POST /my-index-000001,my-index-000002/_delete_by_query
+{
+  "query": {
+    "match_all": {}
+  }
+}
+```
+删除一个文档
+```http request
+POST /my-index-000001,my-index-000002/_delete_by_query
+{
+  "query": {
+    "term": {
+      "user.id": "kimchy"
+    }
+  },
+  "max_docs": 1
+}
+```
+手动切片
+```http request
+POST /my-index-000001,my-index-000002/_delete_by_query
+{
+  "slice": {
+    "id": 0,
+    "max": 2
+  },
+  "query": {
+    "range": {
+      "http.response.bytes": {
+        "lt": 2000000
+      }
+    }
+  }
+}
+```
+自动切片
+````http request
+POST my-index-000001/_delete_by_query?refresh&slices=5
+{
+  "query": {
+    "range": {
+      "http.response.bytes": {
+        "lt": 2000000
+      }
+    }
+  }
+}
+````
+
+响应
+```http request
+{
+  "took" : 147,
+  "timed_out": false,
+  "total": 119,
+  "deleted": 119,
+  "batches": 1,
+  "version_conflicts": 0,
+  "noops": 0,
+  "retries": {
+    "bulk": 0,
+    "search": 0
+  },
+  "throttled_millis": 0,
+  "requests_per_second": -1.0,
+  "throttled_until_millis": 0,
+  "failures" : [ ]
+}
+```
+
+# Query DSL
+[Query DSL](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl)
+## 什么是 Query DSL
+是一种功能齐全的JSON样式的查询语言，支持复杂的搜索、过滤和聚合操作。他是Elasticsearch目前最原始最强大的查询语言。
 
 
 #  search
