@@ -1054,6 +1054,75 @@ POST my-index-000001/_delete_by_query?refresh&slices=5
 }
 ```
 
+## Throttle a deleted by query operation 限制删除查询操作
+格式
+```http request
+POST /_delete_by_query/{task_id}/_rethrottle
+```
+更改删除查询请求数量修改，重新限流加速查询立即生效，而重新限流减速查询在完成当前批次之后生效，防止滚动超时。
+
+### Path parameters 路径参数
+- task_id String Required
+
+### Query parameters 
+- requests_per_second Number:请求的速率限制，以每秒的子请求数表示。如果要禁用速率限制可以设置为`-1`
+
+### Response 
+200
+- node_failures Array[Object]
+请求失败的详细信息。此类定义了所有错误类型共有的属性。此外，还提供了根据错误类型而变化的额外详细信息。
+    - type String Required：错误类型
+    - reason String ｜ Null
+    - stack_trace String ：服务器堆栈跟踪。仅当请求中包含` error_trace=true`参数时才显示。
+    - caused_by Object: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+    - root_cause Array｜Object：请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+    - suppressed Array[Object]: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+- task_failures  Array[Object]
+  - task_id Number Required 
+  - node_id String Required
+  - status String Required
+  - type String Required：错误类型
+  - reason String ｜ Null
+  - stack_trace String ：服务器堆栈跟踪。仅当请求中包含` error_trace=true`参数时才显示。
+  - caused_by Object: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+  - root_cause Array｜Object：请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+  - suppressed Array[Object]: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+- nodes  Object: 节点按任务分组，如果 `group by` 设置为 `node` （默认值）
+  - name String
+  - transport_address String
+  - host String 主机
+  - ip String
+  - roles Array[String] 
+  - attribute Object
+  - tasks Object Required
+    - action String Object
+    - cancelled Boolean
+    - cancellable Boolean Required
+    - description String: 可读文本，用于表示任务正在执行的搜索请求。例如 可能表示搜索任务正在执行的搜索请求。不同类型的任务有不同的描述。例如 `_reindex` 包含源和目标。或 `_bulk`仅包含请求数量和目标索引。但是有很多请求是空的描述，有些请求的描述信息比较难获得且没有什么帮助。
+    - headers Object Required
+    - id Number String
+    - node String Required
+    - running_time String 运行时间 一个持续时间。单位可以是 `nanos` 、 `micros` 、 `ms` (毫秒)、 `s` (秒)、 `m` (分钟)、 `h` (小时) 和 `d` (天)。也接受没有单位的 "`0`" 和表示未指定值的 "`-1`"。
+    - running_time_in_nanos Number 运行时间的纳秒数
+    - start_time_in_millis Number 毫秒时间
+    - status Object 任务内部的当前状态，不同任务的状态可能不同。 格式也可能有所不同。 虽然目标是保持特定任务的状态在版本之间保持一致，但这并不总是可能的，因为有时实现方式会发生变化。 对于特定请求的状态，字段可能会被移除，因此你在状态上的任何解析在次要版本中可能会失效。
+    - type String Required
+    - parent_task_id String
+  - tasks Array[Object] | Object
+    - action String Object
+      - cancelled Boolean
+      - cancellable Boolean Required
+      - description String: 可读文本，用于表示任务正在执行的搜索请求。例如 可能表示搜索任务正在执行的搜索请求。不同类型的任务有不同的描述。例如 `_reindex` 包含源和目标。或 `_bulk`仅包含请求数量和目标索引。但是有很多请求是空的描述，有些请求的描述信息比较难获得且没有什么帮助。
+      - headers Object Required
+      - id Number String
+      - node String Required
+      - running_time String 运行时间 一个持续时间。单位可以是 `nanos` 、 `micros` 、 `ms` (毫秒)、 `s` (秒)、 `m` (分钟)、 `h` (小时) 和 `d` (天)。也接受没有单位的 "`0`" 和表示未指定值的 "`-1`"。
+      - running_time_in_nanos Number 运行时间的纳秒数
+      - start_time_in_millis Number 毫秒时间
+      - status Object 任务内部的当前状态，不同任务的状态可能不同。 格式也可能有所不同。 虽然目标是保持特定任务的状态在版本之间保持一致，但这并不总是可能的，因为有时实现方式会发生变化。 对于特定请求的状态，字段可能会被移除，因此你在状态上的任何解析在次要版本中可能会失效。
+      - type String Required
+      - parent_task_id String
+
 # Query DSL
 [Query DSL](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl)
 ## 什么是 Query DSL
