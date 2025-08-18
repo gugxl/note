@@ -1132,6 +1132,132 @@ GET /{index}/_source/{id}
 ```http request
 GET my-index-000001/_source/1/?_source_includes=*.id&_source_excludes=entities
 ```
+[mapping-source-field](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/mapping-source-field)
+## _source 字段说明
+`_source` 字段包含在索引时传递的原始json文档正文。`_source` 字段本身不会被索引（因此不可搜索），但他被存储起来，以便在执行获取请求（如 `get` 或 `search` ）时返回.
+如果关心磁盘使用情况，可以考虑下面的选项：
+- 使用 `synthetic _source`,他在检索时，重建源内容，而不是将其存储在磁盘上。这样会减少磁盘使用，但是会降低 `Get` 和 `Search` 查询中对 `_source` 的访问速度。
+- 完全禁用 `_source` 字段。这回减少磁盘使用，但会禁用依赖 `_source` 的功能。
+
+### Synthetic _source
+虽然很方便，但源字段中磁盘上占用了大量空间。Elasticsearch不是将源文档按发送时的样子存储在磁盘上，而是在检索时动态重建内容，要启用此订阅功能，请将索引设置 `index.mapping.source.mode` 的 值设置为 `synthetic`：
+```http request
+PUT idx
+{
+  "settings": {
+    "index": {
+      "mapping": {
+        "source": {
+          "mode": "synthetic"
+        }
+      }
+    }
+  }
+}
+```
+虽然这种动态重建通常比按原样保存源文档并在查询时加载它们要慢，但节省了大量存储空间，在不需要时，通常不在查询中加载 _source 字段，可以避免额外的延迟。
+
+#### Supported fields 支持的字段
+Synthetic `_source` 所有类型的字段都是支持。根据实现细节，不同的字段类型中使用 Synthetic `_source` 具有不同的属性。
+
+大多数字段类型使用相同的数据构造合成 `_source` ,最常见的是 `doc_values` 和存储字段。对于这些字段类型， 不需要额外的空间来存储 `_source` 字段的值。由于 `doc_values` 的存储布局，生成的 `_source` 字段和原始文档会发生变化。
+
+对于所有其他字段类型，字段的原始值会“原样”存储，就像在非合成（`non-synthetic`）模式下的 `_source` 字段一样。
+在这种情况下，不会进行任何修改，`_source` 中的字段数据与原始文档中的数据完全一致。
+类似地，那些使用了 `ignore_malformed`（忽略格式错误）或 `ignore_above`（忽略过长值）的字段，其格式错误或被忽略的值也必须原样存储。
+这种方式的缺点是存储效率比较低，因为为了能重建 `_source`，需要额外保存一份字段的原始数据，而索引字段时本身还需要保存其他数据（比如 `doc_values`），导致同一份信息在不同地方重复存储。
+
+#### Synthetic _source restrictions 合成 _source 限制
+
+#### Synthetic _source modifications 合成 _source 修改
+当启用合成 `_source` 时，检索到的文档与原始 JSON 相比会进行一些修改。
+
+#### Arrays moved to leaf fields 数组已经移动到叶子结点
+
+```http request
+PUT idx/_doc/1
+{
+  "foo": [
+    {
+      "bar": 1
+    },
+    {
+      "bar": 2
+    }
+  ]
+}
+```
+会变成
+```json
+{
+  "foo": {
+    "bar": [1, 2]
+  }
+}
+```
+这可能会导致某些数组消失：
+```http request
+PUT idx/_doc/1
+{
+  "foo": [
+    {
+      "bar": 1
+    },
+    {
+      "baz": 2
+    }
+  ]
+}
+```
+将会变为：
+```json
+{
+  "foo": {
+    "bar": 1,
+    "baz": 2
+  }
+}
+```
+#### Fields named as they are mapped 字段按其映射命名
+按映射中的名称创建合成源字段。在使用动态映射时，字段名中包含点（ . ）默认被视为多个对象，而字段名中的点在禁用 `subobjects` 的对象中会被保留。例如：
+```http request
+PUT idx/_doc/1
+{
+  "foo.bar.baz": 1
+}
+```
+会变为
+```json
+{
+  "foo": {
+    "bar": {
+      "baz": 1
+    }
+  }
+}
+```
+这会影响在脚本中如何引用源内容。例如，以脚本原始源形式引用脚本将返回 null：
+```javascript
+"script": { "source": """  emit(params._source['foo.bar.baz'])  """ }
+```
+相反，源引用需要与映射结构保持一致：
+```javascript
+"script": { "source": """  emit(params._source['foo']['bar']['baz'])  """ }
+```
+或者
+```javascript
+"script": { "source": """  emit(params._source.foo.bar.baz)  """ }
+```
+以下字段 API 更可取，因为它们不仅对映射结构保持中立，而且如果可用会使用 docvalues，并且仅在需要时才回退到合成源。这减少了源合成，这是一个缓慢且昂贵的操作。
+```javascript
+"script": { "source": """  emit(field('foo.bar.baz').get(null))   """ }
+"script": { "source": """  emit($('foo.bar.baz', null))   """ }
+```
+
+#### Alphabetical sorting 字母排序
+合成 `_source` 字段按字母顺序排序。JSON RFC 将对象定义为“零个或多个名称/值对的无序集合”，因此应用程序不应关心，但如果没有合成 `_source` ，原始顺序将被保留，并且某些应用程序可能会与规范相悖，根据该顺序执行某些操作。
+
+#### Representation of ranges
 
 
 # Query DSL
