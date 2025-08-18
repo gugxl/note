@@ -1123,6 +1123,17 @@ POST /_delete_by_query/{task_id}/_rethrottle
       - type String Required
       - parent_task_id String
 
+## Get a document‘s source 获取文档源
+格式
+```http request
+GET /{index}/_source/{id}
+```
+可以使用源过滤参数来控制返回 `_source` 的哪些部分
+```http request
+GET my-index-000001/_source/1/?_source_includes=*.id&_source_excludes=entities
+```
+
+
 # Query DSL
 [Query DSL](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl)
 ## 什么是 Query DSL
