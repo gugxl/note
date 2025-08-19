@@ -1684,14 +1684,247 @@ POST /_reindex
 - create Number 成功创建的文档数量。
 - deleted Number 成功删除的文档数量。
 - failures Array[Object] 失败记录
+  - type String Required 
   - cause Object Required 请求失败的原因和详细信息。此类定义了所有错误类型共有的属性。 额外还提供了取决于错误类型的详细信息。
+  - stack_trace String 服务器堆栈跟踪。仅当请求中包含 `error_trace=true` 参数时才显示。
+  - cause_by Object 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+  - root_cause Array｜Object：请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+  - suppressed Array[Object]: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+  - id String Required
+  - index String Required
+  - status Number Required
+- noop Number 由于用于 `reindex` 的脚本对 `ctx.op` 返回了 noop 值而被忽略的文档数量。
+- retries Object
+  - bulk Number Required 重试的批量操作数量。
+  - search Number Required 重试的搜索操作数量
+- requests_per_second Number 每秒有效运行的请求数量
+- slice_id Number
+- task String
+- throttled_millis Number 毫秒的时间单位
+- throttled_unit_millis Number 毫秒的时间单位
+- timed_out Boolean 如果在重新索引期间任何请求超时，则为 `true` 。
+- took Number 毫秒的时间单位
+- total Number 成功处理的文档数量。
+- updated Number 成功更新的文档数量。也就是说，在重新索引之前，已经存在具有相同 ID 的文档。
+- version_conflicts Number 发生版本冲突的数量。
 
+示例
+```http request
+POST _reindex
+{
+  "source": {
+    "index": ["my-index-000001", "my-index-000002"]
+  },
+  "dest": {
+    "index": "my-new-index-000002"
+  }
+}
+```
+从多个源重建索引
+```http request
+POST _reindex
+{
+  "source": {
+    "index": ["my-index-000001", "my-index-000002"]
+  },
+  "dest": {
+    "index": "my-new-index-000002"
+  }
+}
+```
+使用Painless重建索引
+```http request
+POST _reindex
+{
+  "source": {
+    "index": "metricbeat-*"
+  },
+  "dest": {
+    "index": "metricbeat"
+  },
+  "script": {
+    "lang": "painless",
+    "source": "ctx._index = 'metricbeat-' + (ctx._index.substring('metricbeat-'.length(), ctx._index.length())) + '-1'"
+  }
+}
+```
 
+随机复制部分文档重建索引
+```http request
+POST _reindex
+{
+  "max_docs": 10,
+  "source": {
+    "index": "my-index-000001",
+    "query": {
+      "function_score" : {
+        "random_score" : {},
+        "min_score" : 0.9
+      }
+    }
+  },
+  "dest": {
+    "index": "my-new-index-000001"
+  }
+}
+```
+重建索引的时候修改文档
 
-
-
-
-
+```http request
+POST _reindex
+{
+  "source": {
+    "index": "my-index-000001"
+  },
+  "dest": {
+    "index": "my-new-index-000001",
+    "version_type": "external"
+  },
+  "script": {
+    "source": "if (ctx._source.foo == 'bar') {ctx._version++; ctx._source.remove('foo')}",
+    "lang": "painless"
+  }
+}
+```
+远程重建索引
+```http request
+POST _reindex
+{
+  "source": {
+    "remote": {
+      "host": "http://otherhost:9200",
+      "username": "user",
+      "password": "pass"
+    },
+    "index": "my-index-000001",
+    "query": {
+      "match": {
+        "test": "data"
+      }
+    }
+  },
+  "dest": {
+    "index": "my-new-index-000001"
+  }
+}
+```
+手动切片
+```http request
+POST _reindex
+{
+  "source": {
+    "index": "my-index-000001",
+    "slice": {
+      "id": 0,
+      "max": 2
+    }
+  },
+  "dest": {
+    "index": "my-new-index-000001"
+  }
+}
+```
+自动切片
+```http request
+OST _reindex?slices=5&refresh
+{
+  "source": {
+    "index": "my-index-000001"
+  },
+  "dest": {
+    "index": "my-new-index-000001"
+  }
+}
+```
+路由
+```http request
+POST _reindex
+{
+  "source": {
+    "index": "source",
+    "query": {
+      "match": {
+        "company": "cat"
+      }
+    }
+  },
+  "dest": {
+    "index": "dest",
+    "routing": "=cat"
+  }
+}
+```
+写入管道
+```http request
+POST _reindex
+{
+  "source": {
+    "index": "source"
+  },
+  "dest": {
+    "index": "dest",
+    "pipeline": "some_ingest_pipeline"
+  }
+}
+```
+查询重建索引
+```http request
+POST _reindex
+{
+  "source": {
+    "index": "my-index-000001",
+    "query": {
+      "term": {
+        "user.id": "kimchy"
+      }
+    }
+  },
+  "dest": {
+    "index": "my-new-index-000001"
+  }
+}
+```
+重建索引设定最大值
+```http request
+POST _reindex
+{
+  "max_docs": 1,
+  "source": {
+    "index": "my-index-000001"
+  },
+  "dest": {
+    "index": "my-new-index-000001"
+  }
+}
+```
+选定字段重建索引
+```http request
+POST _reindex
+{
+  "source": {
+    "index": "my-index-000001",
+    "_source": ["user.id", "_doc"]
+  },
+  "dest": {
+    "index": "my-new-index-000001"
+  }
+}
+```
+重建索引的时候字段重命名
+```http request
+POST _reindex
+{
+  "source": {
+    "index": "my-index-000001"
+  },
+  "dest": {
+    "index": "my-new-index-000001"
+  },
+  "script": {
+    "source": "ctx._source.tag = ctx._source.remove(\"flag\")"
+  }
+}
+```
 
 
 
