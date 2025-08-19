@@ -925,7 +925,7 @@ POST _tasks/r1A2WoRbTwKZ516z6NEs5A:36619/_cancel
 - requests_per_second Number：每秒请求数量，请求的限制（以每秒子请求数量计算）
 - routing String：用于将操作路由到特定分片的自定义值。
 - q String：Lucene 查询字符串语法中的查询。
-- scroll String：保留搜索上下文以进行滚动的时间段，可以是 -1 或 0 
+- scroll String：保留搜索上下文以进行滚动的时间段，可以是 `-1` 或 `0` 
 - scroll_size Number：支持该操作的滚动请求的大小。
 - search_timeout String：每次搜索请求的显式超时时间，默认无超时。可以为`0`或`-1`
 - search_type String: 搜索操作的类型。可以选`query_then_fetch` 和 `dfs_query_then_fetch`
@@ -1480,7 +1480,264 @@ POST /{index}/_mtermvectors
     - root_cause Array｜Object：请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
     - suppressed Array[Object]: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
 
-  
+### 示例
+```http request
+POST /my-index-000001/_mtermvectors
+{
+  "docs": [
+      {
+        "_id": "2",
+        "fields": [
+            "message"
+        ],
+        "term_statistics": true
+      },
+      {
+        "_id": "1"
+      }
+  ]
+}
+```
+Get multiple term vectors
+```http request
+POST /my-index-000001/_mtermvectors
+{
+  "docs": [
+      {
+        "_id": "2",
+        "fields": [
+            "message"
+        ],
+        "term_statistics": true
+      },
+      {
+        "_id": "1"
+      }
+  ]
+}
+```
+Simplified syntax
+```http request
+POST /my-index-000001/_mtermvectors
+{
+  "ids": [ "1", "2" ],
+  "fields": [
+    "message"
+  ],
+  "term_statistics": true
+}
+```
+虚拟文档 Artificial documents
+```http request
+POST /_mtermvectors
+{
+  "docs": [
+      {
+        "_index": "my-index-000001",
+        "doc" : {
+            "message" : "test test test"
+        }
+      },
+      {
+        "_index": "my-index-000001",
+        "doc" : {
+          "message" : "Another test ..."
+        }
+      }
+  ]
+}
+```
+
+## Reindex documents 重新索引文档
+格式
+```http request
+POST /_reindex
+```
+将文档从源复制到目标。您可以将所有文档复制到目标索引，也可以重新索引文档的子集。源可以是任何现有的索引、别名或数据流。目标必须与源不同。例如，您不能将数据流重新索引到自身。
+
+> 重要提示：重新索引要求源中的所有文档都必须启用 `_source` 。在调用重新索引 API 之前，应配置目标。重新索引不会从源或其关联模板复制设置。例如，映射、分片计数和副本必须提前配置。
+
+如果启用了 Elasticsearch 的安全功能，您必须拥有以下安全权限：
+- 源数据流、索引或别名的 `read` 索引权限。
+- 目标数据流、索引或索引别名的 `write` 索引权限。
+- 要使用 `reindex` API 请求自动创建数据流或索引，您必须拥有目标数据流、索引或别名的 `auto_configure` 、 `create_index` 或 `manage` 索引权限。
+- 如果从远程集群进行重新索引， `source.remote.user` 必须具有 `monitor` 集群权限和 `read` 对源数据流、索引或别名的索引权限。
+
+如果从远程集群进行重新索引，你必须在 `reindex.remote.whitelist` 设置中明确允许远程主机。自动数据流创建需要一个具有数据流启用功能的匹配索引模板。
+
+`dest` 元素可以像索引 API 一样进行配置，以控制乐观并发控制。省略 `version_type` 或将其设置为 `internal` 会导致 Elasticsearch 盲目地将文档倒入目标位置，覆盖任何具有相同 ID 的文档。
+
+将 `version_type` 设置为 `external` 会导致 Elasticsearch 保留源中的 `version` ，创建任何缺失的文档，并更新目标中比源中旧版本的任何文档。
+
+将 `op_type` 设置为 `create` 会导致重新索引 API 仅在目标位置创建缺失的文档。所有现有文档将导致版本冲突。
+
+> 注意：由于数据流是仅追加的，因此对目标数据流进行的任何重新索引请求都必须具有 `op_type` 为 `create` 。重新索引只能向目标数据流添加新文档。它无法更新目标数据流中的现有文档。
+
+默认情况下，版本冲突会中止重新索引过程。如果存在冲突，要继续重新索引，请将 `conflicts` 请求正文属性设置为 `proceed` 。在这种情况下，响应将包含遇到的版本冲突计数。 `conflicts` 属性不会影响其他错误类型的处理。此外，如果您选择计算版本冲突，操作可能会尝试从源重新索引比 `max_docs` 更多的文档，直到它成功将 `max_docs` 个文档索引到目标，或者它已经遍历了源查询中的每个文档。
+
+[重新索引说明文档](#重新索引)
+
+### Query parameters 
+- refresh Boolean 如果 `true` ，请求将刷新受影响的分片，以使此操作对搜索可见。
+- requests_per_second Number:请求的速率限制，以每秒的子请求数表示。默认没有限制
+- scroll String：保留搜索上下文以进行滚动的时间段，可以是 `-1` 或 `0`
+- slices Number|String
+  此任务应划分为多少个片段。默认为单个片段，这意味着任务不会被划分为子任务。
+  `Reindex` 支持切片滚动来并行化 `reindexing` 过程。这种并行化可以提高效率，并提供一种方便的方式将请求分解成更小的部分。
+  注意：从远程集群进行 `reindexing` 不支持手动或自动切片。
+  如果设置为 `auto` ，Elasticsearch 会选择使用的切片数量。此设置将每个分片使用一个切片，直到达到某个限制。如果有多个源，它将根据具有最少分片的索引或后备索引来选择切片数量。
+- max_docs Number 重新索引的最大文档数量。默认情况下，所有文档都会被重新索引。如果该值小于或等于 `scroll_size` ，则不会使用滚动条来检索操作结果。
+  如果 `conflicts` 设置为 `proceed` ，重新索引操作可能会尝试从源中重新索引比 `max_docs` 更多的文档，直到它成功将 `max_docs` 个文档索引到目标或已经遍历了源查询中的所有文档。
+- timeout String 每个索引等待自动索引创建、动态映射更新和等待活动分片的持续时间。默认情况下，Elasticsearch 在失败前会等待至少一分钟。实际等待时间可能会更长，尤其是在发生多次等待时。 可以取值 `-1` 或 `0`
+- wait_for_active_shards Number | string
+  批量操作必须等待至少多少个分片副本处于活动状态。可以设置为`all`或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`),默认是1,等待每个主分片处于活动状态.
+- wait_for_completion Boolean 如果 `true` ，请求会阻塞直到操作完成。
+- require_alias Boolean 如果 `true` ，目标必须是索引别名。
+
+### Body Required
+- conflict String 值可以是 `abort` 或 `proceed`
+- dest Object Required
+  - index String Required
+  - op_type String 值可以是 `index` 或 `create`
+  - pipeline String 使用管道的名称
+  - routing String
+  - version_type String 值是 `internal` 、 `external` 、 `external_gte` 或 `force` 。
+- max_docs number 重新索引的最大文档数量。默认情况下，所有文档都会被重新索引。如果该值小于或等于 `scroll_size` ，则不会使用滚动来检索操作的结果。如果 `conflicts` 设置为 `proceed` ，重新索引操作可能会尝试从源重新索引比 `max_docs` 更多的文档，直到它成功将 `max_docs` 个文档索引到目标或已经遍历了源查询中的所有文档。
+- script Object
+  - source String | Object
+  - id String
+  - params Object
+  - lang String 值是 `painless` 、 `expression` 、 `mustache` 或 `java` 。
+  - options Object
+- size Number Required
+  - index String | Array[String] Required
+  - query Object  [DSL语言](#Query-DSL)  一个定义查询的 Elasticsearch 查询 DSL（领域特定语言）对象。
+  - remote Object
+    - connect_timeout String 一个持续时间。单位可以是 `nanos` 、 `micros` 、 `ms` (毫秒)、 `s` (秒)、 `m` (分钟)、 `h` (小时) 和 `d` (天)。也接受没有单位的 "`0`" 和表示未指定值的 "`-1`"。
+    - headers Object 包含请求头部的对象。
+    - host String Required
+    - username String
+    - password String
+    - socket_timeout String 一个持续时间。单位可以是 `nanos` 、 `micros` 、 `ms` (毫秒)、 `s` (秒)、 `m` (分钟)、 `h` (小时) 和 `d` (天)。也接受没有单位的 "`0`" 和表示未指定值的 "`-1`"。
+  - size Number 每批次要索引的文档数量。 在从远程位置索引时使用，以确保批次适合在堆内存缓冲区中，该缓冲区的默认最大大小为 `100 MB`。默认值为 1000 。
+  - slice Object 
+    - field String 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+    - id String Required
+    - max Number Required
+  - sort String|Object|Array[String|Object]
+如果是 String： 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+如果是 Object：
+    - _score Object
+      - order String 值是 `asc` 或 `desc`
+    - _doc Object
+      - order String 值是 `asc` 或 `desc`
+    - _geo_distance Object
+      - mode String 值是 `min` 、 `max` 、 `sum` 、 `avg` 或 `median` 。
+      - distance_type 值为 `arc` 或 `plane` 
+      - ignore_unmapped Boolean
+      - Order String 值为 `asc` 或 `desc`
+      - unit String 值可以是 `in` 、 `ft` 、 `yd` 、 `mi` 、 `nmi` 、 `km` 、 `m` 、 `cm` 或 `mm` 。
+      - nested Object
+        - filter Object 使用DSL语言查询
+        - max_children Number
+        - nested Object
+        - path String Required 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+    - _script Object 
+      - order String 值是 `asc` 或 `desc`
+      - script Object
+        - source 
+        - id String 
+        - params Object 指定作为变量传递到脚本中的任何命名参数。 使用参数而不是硬编码的值来减少编译时间。
+        - lang
+        - options Object
+      - type String 值是 `string` ， `number` ，或 `version` 。
+      - mode String 值是 `min` 、 `max` 、 `sum` 、 `avg` 或 `median` 。
+      - nested  Object
+        - filter Object 使用DSL语言查询
+        - max_children Number
+        - nested Object
+        - path String Required 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+      - _source String | Array[String]
+      - runtime_mappings Object
+        - fields Object
+          对于类型 `composite`
+          - type String Required 值是 `boolean` ， `composite` ， `date` ， `double` ， `geo_point` ， `geo_shape` ， `ip` ， `keyword` ， `long` ，或 `lookup` 。
+        - fetch_fields Array[Object]
+          对于类型 `lookup`
+          - field String Required 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+          - format String
+        - format String date 类型运行时字段的自定义格式。
+        - input_field String 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+        - target_field String 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+        - script Object
+          - source String | Object
+          如果是String：
+            - id String
+            - params Object 指定作为变量传递到脚本中的任何命名参数。 使用参数而不是硬编码的值来减少编译时间。
+            - lang String 值是 `painless` 、 `expression` 、 `mustache` 或 `java` 。
+            - options Object
+            - type String 值是 `boolean` ， `composite` ， `date` ， `double` ， `geo_point` ， `geo_shape` ， `ip` ， `keyword` ， `long` ，或 `lookup` 。
+
+### Response 响应
+200 
+- batches Number `reindex` 拉回的滚动响应的数量
+- create Number 成功创建的文档数量。
+- deleted Number 成功删除的文档数量。
+- failures Array[Object] 失败记录
+  - cause Object Required 请求失败的原因和详细信息。此类定义了所有错误类型共有的属性。 额外还提供了取决于错误类型的详细信息。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1819,6 +2076,7 @@ GET logs/_search
 (ii)即使它不在存储的 _source 中，我们仍然可以在这个字段上搜索。
 
 
-
+## 重新索引
+[reindex](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/reindex-indices)
 
 
