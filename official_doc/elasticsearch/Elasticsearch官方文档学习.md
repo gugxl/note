@@ -504,7 +504,7 @@ true的时候请求是实时的，而不是近实时的。
   要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用_source_excludes，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
 - stored_fields String|Array[String]
 以逗号分隔存储的字段列表，作为命中的一部分返回。如果没有指定字段，那么响应中不包含任何存储字段。如果指定了这个字段，则`_source`字段默认为`false`。使用`stored_fields`只能检索叶子字段。不能返回对象字段；如果指定对象字段就会请求失败。
-- Version Number 版本号
+- version Number 版本号
   用于并发控制的版本号，当文档版本等于当前查询指定的版本，才能检索出文档
 - version_type String
   值可以是
@@ -1132,6 +1132,96 @@ GET /{index}/_source/{id}
 ```http request
 GET my-index-000001/_source/1/?_source_includes=*.id&_source_excludes=entities
 ```
+[_source 字段说明](#_source-字段说明)
+
+### Path parameters 路径参数
+- index String Required
+- id String Required
+
+### Query parameters 查询参数
+- preference String 首选项
+  应该在哪个节点或分片上执行，默认再分片和副本间随机变化
+  如果设置为_local,则操作优先中本地分配的分片上执行。如果设置为自定义值，则该值用于确保相同的自定义值用于相同的分片，有助于在不同的刷新状态下访问不同分片时进行“跳跃值”操作。例如可以使用`web session ID`或者用户名。
+- realtime boolean
+  true的时候请求是实时的，而不是近实时的。
+- refresh Boolean
+  如果是`true`，会在请求检索文档之前刷新相关分片。需要考虑并确认这个操作不会给系统造成过重负载。
+- routing String
+  用于将操作路由到特定分片的自定义值
+- _source Boolean | String | Array[String]
+  标识返回是否包含`_source`字段（true或false）或列出要返回的字段
+- _source_excludes String | Array[String]
+  从响应中排除的源字段。也可以从`_source_includes`查询参数中指定的子集中排除字段。如果`_source`是`false`，就会忽略这个参数。
+- _source_exclude_vectors Boolean 在9.2.0版本中添加
+  是否应从`_source`排除向量
+- _source_includes String,Array[String]
+  要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用_source_excludes，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
+- stored_fields String|Array[String]
+  以逗号分隔存储的字段列表，作为命中的一部分返回。如果没有指定字段，那么响应中不包含任何存储字段。如果指定了这个字段，则`_source`字段默认为`false`。使用`stored_fields`只能检索叶子字段。不能返回对象字段；如果指定对象字段就会请求失败。
+- version Number 版本号
+  用于并发控制的版本号，当文档版本等于当前查询指定的版本，才能检索出文档
+- version_type String
+  值可以是
+    - internal, 内部控制，从1开始，每次更新或删除时递增
+    - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+    - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+    - force 已经弃用，因为可能导致 主分片和副本分片分离
+
+#### Responses
+200
+
+## Check for a document source
+格式
+```http request
+HEAD /{index}/_source/{id}
+```
+检查文档源是否存在索引中
+```http request
+HEAD my-index-000001/_source/1
+```
+如果文档在映射中禁用，则其源不可用。
+
+
+[_source 字段说明](#_source-字段说明)
+
+
+
+# Query DSL
+[Query DSL](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl)
+## 什么是 Query DSL
+是一种功能齐全的JSON样式的查询语言，支持复杂的搜索、过滤和聚合操作。他是Elasticsearch目前最原始最强大的查询语言。
+
+
+#  search
+[search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
+
+
+
+#  映射
+[Mapping](https://www.elastic.co/docs/manage-data/data-store/mapping)
+
+# 模版
+[templates](https://www.elastic.co/docs/manage-data/data-store/templates)
+
+# 聚合
+[aggregations](https://www.elastic.co/docs/explore-analyze/query-filter/aggregations)
+
+# 节点设置
+[node-settings](https://www.elastic.co/docs/reference/elasticsearch/configuration-reference/node-settings)、
+
+# 分析器
+[text-analysis](https://www.elastic.co/docs/manage-data/data-store/text-analysis)
+
+# 优化加速
+[search-speed](https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/search-speed)
+
+# 生产指导
+[生产指导](https://www.elastic.co/docs/deploy-manage/production-guidance)
+
+
+
+# 其他
+
 [mapping-source-field](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/mapping-source-field)
 ## _source 字段说明
 `_source` 字段包含在索引时传递的原始json文档正文。`_source` 字段本身不会被索引（因此不可搜索），但他被存储起来，以便在执行获取请求（如 `get` 或 `search` ）时返回.
@@ -1237,19 +1327,19 @@ PUT idx/_doc/1
 }
 ```
 这会影响在脚本中如何引用源内容。例如，以脚本原始源形式引用脚本将返回 null：
-```javascript
+```shell
 "script": { "source": """  emit(params._source['foo.bar.baz'])  """ }
 ```
 相反，源引用需要与映射结构保持一致：
-```javascript
+```shell
 "script": { "source": """  emit(params._source['foo']['bar']['baz'])  """ }
 ```
 或者
-```javascript
+```shell
 "script": { "source": """  emit(params._source.foo.bar.baz)  """ }
 ```
 以下字段 API 更可取，因为它们不仅对映射结构保持中立，而且如果可用会使用 docvalues，并且仅在需要时才回退到合成源。这减少了源合成，这是一个缓慢且昂贵的操作。
-```javascript
+```shell
 "script": { "source": """  emit(field('foo.bar.baz').get(null))   """ }
 "script": { "source": """  emit($('foo.bar.baz', null))   """ }
 ```
@@ -1258,39 +1348,176 @@ PUT idx/_doc/1
 合成 `_source` 字段按字母顺序排序。JSON RFC 将对象定义为“零个或多个名称/值对的无序集合”，因此应用程序不应关心，但如果没有合成 `_source` ，原始顺序将被保留，并且某些应用程序可能会与规范相悖，根据该顺序执行某些操作。
 
 #### Representation of ranges
+范围字段值（例如`long_range`）始终以包含两边的方式表示
 
+#### Reduced precision of `geo_point` values 精度降低
+`geo_point` 字段的值以合成 `_source` 的形式表示，精度降低。
 
-# Query DSL
-[Query DSL](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl)
-## 什么是 Query DSL
-是一种功能齐全的JSON样式的查询语言，支持复杂的搜索、过滤和聚合操作。他是Elasticsearch目前最原始最强大的查询语言。
+#### Minimizing source modifications
+可以避免对特定对象或字段进行合成源代码修改，但这需要额外的存储成本。这通过参数 `synthetic_source_keep` 进行控制，具有以下选项：
+- none: 源代码与上述原始源代码不同（默认）。
+- arrays: 字段或对象的数组保留原始元素顺序和重复元素。对于此类数组，合成源代码片段不一定能完全匹配原始源代码，例如数组 `[1, 2, [5], [[4, [3]]], 5]` 可能以原样或等效格式（如 `[1, 2, 5, 4, 3, 5] `）出现。未来可能会更改确切格式，以减少此选项的存储开销。
+- all : 单例实例和相应字段或对象的数组源都会被记录。应用于对象时，所有子对象和子字段的源都会被捕获。此外，数组的原始源也会被捕获，并以合成源的形式出现，且无修改。
 
+```http request
+PUT idx_keep
+{
+  "settings": {
+    "index": {
+      "mapping": {
+        "source": {
+          "mode": "synthetic"
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "path": {
+        "type": "object",
+        "synthetic_source_keep": "all"
+      },
+      "ids": {
+        "type": "integer",
+        "synthetic_source_keep": "arrays"
+      }
+    }
+  }
+}
+```
 
-#  search
-[search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
+```http request
+PUT idx_keep/_doc/1
+{
+  "path": {
+    "to": [
+      { "foo": [3, 2, 1] },
+      { "foo": [30, 20, 10] }
+    ],
+    "bar": "baz"
+  },
+  "ids": [ 200, 100, 300, 100 ]
+}
+```
+返回原始源，无数组去重和排序：
+```json
+{
+  "path": {
+    "to": [
+      { "foo": [3, 2, 1] },
+      { "foo": [30, 20, 10] }
+    ],
+    "bar": "baz"
+  },
+  "ids": [ 200, 100, 300, 100 ]
+}
+```
+捕获数组源的选择可以在索引级别应用，通过将 `index.mapping.synthetic_source_keep` 设置为 `arrays` 。这适用于索引中的所有对象和字段，除了那些 `synthetic_source_keep` 设置为 `none` 的显式覆盖项。在这种情况下，存储开销会随着每个文档源中数组数量和大小而增长，这是自然的。
+#### Field types that support synthetic source with no storage overhead
+以下字段类型使用 `doc_values` 或存储字段的数据支持合成源，构建 `_source` 字段时无需额外的存储空间。
+不进行详细介绍了
 
+- aggregate_metric_double
+- annotated-text
+- binary
+- boolean
+- byte
+- date
+- date_nanos
+- dense_vector
+- double
+- flattened
+- float
+- geo_point
+- half_float
+- histogram
+- integer
+- ip
+- keyword
+- long
+- rang types
+- scaled_float
+- short
+- text
+- version
+- wildcard
 
+#### Disabling the _source field 禁用 _source 字段
+尽管它非常方便，但源字段确实会在索引中产生存储开销。因此，可以按照以下方式禁用它：
+```http request
+PUT my-index-000001
+{
+  "mappings": {
+    "_source": {
+      "enabled": false
+    }
+  }
+}
+```
+> 注意： 不要禁用 `_source` 字段，除非绝对必要。如果你禁用它，以下关键功能将不受支持：
+> - `update` 、 `update_by_query` 和 `reindex` API。
+> - 在 Kibana Discover 应用中显示字段数据。
+> - 动态高亮显示
+> - 从其中一个 Elasticsearch 索引重新索引到另一个索引的能力，无论是更改映射或分析，还是将索引升级到新的大版本。
+> - 通过查看索引时使用的原始文档来调试查询或聚合的能力。
+> - 未来可能具备自动修复索引损坏的能力。
 
-#  映射
-[Mapping](https://www.elastic.co/docs/manage-data/data-store/mapping)
+> 注意 您不能禁用字段 `_source` ，当索引的 `index_mode` 设置为 `logsdb` 或 `time_series` 时。
 
-# 模版
-[templates](https://www.elastic.co/docs/manage-data/data-store/templates)
+> 如果磁盘空间是问题，最好增加压缩级别而不是禁用 _source 。
 
-# 聚合
-[aggregations](https://www.elastic.co/docs/explore-analyze/query-filter/aggregations)
+#### Including / Excluding fields from _source 包含或者排除 _source 字段
+> 从 _source 中移除字段与禁用 `_source` 类似，都有类似的缺点，尤其是你无法从一个 Elasticsearch 索引重新索引文档到另一个索引。考虑使用源过滤代替。
 
-# 节点设置
-[node-settings](https://www.elastic.co/docs/reference/elasticsearch/configuration-reference/node-settings)、
+includes / excludes 参数（也接受通配符）可以按如下方式使用：
 
-# 分析器
-[text-analysis](https://www.elastic.co/docs/manage-data/data-store/text-analysis)
+```http request
+PUT logs
+{
+  "mappings": {
+    "_source": {
+      "includes": [
+        "*.count",
+        "meta.*"
+      ],
+      "excludes": [
+        "meta.description",
+        "meta.other.*"
+      ]
+    }
+  }
+}
+```
+```http request
+PUT logs/_doc/1
+{
+  "requests": {
+    "count": 10,
+    "foo": "bar"  (i)
+  },
+  "meta": {
+    "name": "Some metric", 
+    "description": "Some metric description",  (i)
+    "other": {
+      "foo": "one",  (i)
+      "baz": "two"   (i)
+    }
+  }
+}
+```
 
-# 优化加速
-[search-speed](https://www.elastic.co/docs/deploy-manage/production-guidance/optimize-performance/search-speed)
-
-# 生产指导
-[生产指导](https://www.elastic.co/docs/deploy-manage/production-guidance)
+```http request
+GET logs/_search
+{
+  "query": {
+    "match": {
+      "meta.other.foo": "one"   (ii)
+    }
+  }
+}
+```
+(i) 这些字段将从存储的 _source 字段中移除。
+(ii)即使它不在存储的 _source 中，我们仍然可以在这个字段上搜索。
 
 
 
