@@ -1300,6 +1300,188 @@ POST /{index}/_mget
   - _id String Required 
   - _index String Required
 
+示例
+```http request
+GET /my-index-000001/_mget
+{
+  "docs": [
+    {
+      "_id": "1"
+    },
+    {
+      "_id": "2"
+    }
+  ]
+}
+```
+根据id查询
+```http request
+GET /my-index-000001/_mget
+{
+  "docs": [
+    {
+      "_id": "1"
+    },
+    {
+      "_id": "2"
+    }
+  ]
+}
+```
+过滤`_source`字段
+```http request
+GET /_mget
+{
+  "docs": [
+    {
+      "_index": "test",
+      "_id": "1",
+      "_source": false
+    },
+    {
+      "_index": "test",
+      "_id": "2",
+      "_source": [ "field3", "field4" ]
+    },
+    {
+      "_index": "test",
+      "_id": "3",
+      "_source": {
+        "include": [ "user" ],
+        "exclude": [ "user.location" ]
+      }
+    }
+  ]
+}
+```
+获取 stored 字段
+```http request
+GET /_mget
+{
+  "docs": [
+    {
+      "_index": "test",
+      "_id": "1",
+      "stored_fields": [ "field1", "field2" ]
+    },
+    {
+      "_index": "test",
+      "_id": "2",
+      "stored_fields": [ "field3", "field4" ]
+    }
+  ]
+}
+```
+文档路由
+```http request
+GET /_mget?routing=key1
+{
+  "docs": [
+    {
+      "_index": "test",
+      "_id": "1",
+      "routing": "key2"
+    },
+    {
+      "_index": "test",
+      "_id": "2"
+    }
+  ]
+}
+```
+
+## Get Multiple term vectors 获取多个词向量
+格式
+```http request
+GET /_mtermvectors
+POST /_mtermvectors
+GET /{index}/_mtermvectors
+POST /{index}/_mtermvectors
+```
+使用单个请求获取多个词向量。您可以通过索引和 ID 指定现有文档，或在请求正文中提供人工文档。您可以在请求正文或请求 URI 中指定索引。响应包含一个 docs 数组，其中包含所有获取的词向量。每个元素具有 termvectors API 提供的结构。
+
+### Artificial documents 人工文档 
+可以使用 `mtermvectors` API 来为请求体中的虚拟文档生成词向量（term vectors）。使用的映射（mapping）取决于指定的索引。
+
+### Required authority
+- index privileges： read
+
+### Path parameter 
+- index String Required 
+
+### Query parameter 查询参数
+- ids Array[String] 一系列用逗号分隔的文档 ID。你必须将 `ids` 定义为参数，或在请求体中设置"`ids`"或"`docs`"
+- fields String | Array[String]  一个逗号分隔的列表或通配符表达式，指定要在统计中包含的字段。如果没有在 `completion_fields` 或 `fielddata_fields` 参数中提供特定的字段列表，则用作默认列表。
+- field_statistics Boolean 如果 `true` ，响应将包括文档计数、文档频率之和以及总词频之和。
+- offsets Boolean 如果 `true` ，响应将包含词项偏移量。
+- payloads Boolean 如果 `true` ，响应将包含词项负载。
+- positions Boolean 如果 `true` ，响应将包含词项位置。
+- preference String 操作应在其上执行的节点或分片。默认情况下是随机的。
+- realtime Boolean 如果为 `true`，请求是实时而不是近实时的。
+- routing String 用于将操作路由到特定分片的自定义值。
+- term_statistics Boolean 如果为真，响应将包含词频和文档频。
+- version Number 如果 true ，则将文档版本作为命中的一部分返回。
+- version_type String
+  值可以是
+    - internal, 内部控制，从1开始，每次更新或删除时递增
+    - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+    - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+    - force 已经弃用，因为可能导致 主分片和副本分片分离
+### Body
+- docs Array[Object]
+  一个现有或人工文档的数组。
+  - _id String Required
+  - _index String
+  - doc Object
+  - fields String | Array[String] 
+  - field_statistics Boolean 如果 true ，则响应包含文档数量、文档频率之和以及总词频之和。 默认值是true
+  - filter String | Array[String]
+    - max_doc_freq Number 文档中超过数量的词语进行忽略。 默认无限制。
+    - max_num_terms Number 每个字段必须返回的最大词数量。默认25
+    - max_term_freq Number 忽略源文档中出现频率超过此值的词。 默认无限制。
+    - max_word_length Number 超过此最大词长度的词将被忽略。 默认无限制（0 代表无限制）。
+    - min_doc_freq Number 忽略在至少这么多文档中未出现的术语。默认值1
+    - min_term_freq Number 忽略源文档中频率低于此值的词。默认值1
+    - min_word_length Number 忽略长度低于此值的词。默认值0
+  - offsets Boolean 如果 `true` ，响应将包含词项偏移量。,默认值`true`。
+  - payloads Boolean 如果 `true` ，响应将包含词项负载。默认值`true`。
+  - positions Boolean 如果 `true` ，响应将包含词项位置。默认值`true`。
+  - routing String
+  - term_statistics Boolean 如果为 `true`，响应将包含词项频率和文档频率。默认值为 `false` 。
+  - version Number
+    跟之前的一样是非负的长整数
+  - version_type String
+    值可以是
+    - internal, 内部控制，从1开始，每次更新或删除时递增
+    - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+    - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+    - force 已经弃用，因为可能导致 主分片和副本分片分离
+- ids Array[String]  如果在同一个索引中，可以使用简化的语法通过文档的 ID 指定文档。
+
+### Responses
+200
+- docs Array[Object] Required
+  - _id String Required
+  - _index String
+  - _version  Number
+  - took Number
+  - found Boolean
+  - term_vectors Object
+    - field_statistics Object
+      - doc_count Number Required
+      - sum_doc_freq Number Required
+      - sum_ttf Number Required
+    - trems Object Required
+  - error 
+    - type String Required：错误类型
+    - reason String ｜ Null
+    - stack_trace String ：服务器堆栈跟踪。仅当请求中包含` error_trace=true`参数时才显示。
+    - caused_by Object: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+    - root_cause Array｜Object：请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+    - suppressed Array[Object]: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+
+  
+
 
 
 
