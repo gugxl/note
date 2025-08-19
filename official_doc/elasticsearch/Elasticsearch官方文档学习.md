@@ -1926,6 +1926,26 @@ POST _reindex
 }
 ```
 
+## Throttle a reindex option 限制重建索引
+格式
+```http request
+POST /_reindex/{task_id}/_rethrottle
+```
+更改特定 reindex 操作每秒的请求数量。例如：
+```http request
+POST _reindex/r1A2WoRbTwKZ516z6NEs5A:36619/_rethrottle?requests_per_second=-1
+```
+重新限流加速查询的效果立即生效。重新限流减速查询的效果将在完成当前批次后生效。这种行为可防止滚动超时。
+
+### Path parameters
+task_id String Required 任务标识符，可以通过使用 tasks API 找到。
+
+### Query parameters
+requests_per_second Number 这个请求在子请求每秒内的速率限制。它可以设置为 -1 来关闭速率限制，或者设置为任何小数如 1.7 或 12 来限制在该级别。
+
+### Responses
+200
+- nodes Object Required
 
 
 
