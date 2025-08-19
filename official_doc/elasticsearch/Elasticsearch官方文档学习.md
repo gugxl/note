@@ -1181,8 +1181,125 @@ HEAD my-index-000001/_source/1
 ```
 如果文档在映射中禁用，则其源不可用。
 
+### Required authorization 所需权限
+- index privileges: read
 
 [_source 字段说明](#_source-字段说明)
+
+### Path parameters 路径参数
+- index String Required
+- id String Required
+
+### Query parameters 查询参数
+- preference String 首选项
+  应该在哪个节点或分片上执行，默认再分片和副本间随机变化
+  如果设置为_local,则操作优先中本地分配的分片上执行。如果设置为自定义值，则该值用于确保相同的自定义值用于相同的分片，有助于在不同的刷新状态下访问不同分片时进行“跳跃值”操作。例如可以使用`web session ID`或者用户名。
+- realtime boolean
+  true的时候请求是实时的，而不是近实时的。
+- refresh Boolean
+  如果是`true`，会在请求检索文档之前刷新相关分片。需要考虑并确认这个操作不会给系统造成过重负载。
+- routing String
+  用于将操作路由到特定分片的自定义值
+- _source Boolean | String | Array[String]
+  标识返回是否包含`_source`字段（true或false）或列出要返回的字段
+- _source_excludes String | Array[String]
+  从响应中排除的源字段。也可以从`_source_includes`查询参数中指定的子集中排除字段。如果`_source`是`false`，就会忽略这个参数。
+- _source_exclude_vectors Boolean 在9.2.0版本中添加
+  是否应从`_source`排除向量
+- _source_includes String,Array[String]
+  要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用_source_excludes，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
+- stored_fields String|Array[String]
+  以逗号分隔存储的字段列表，作为命中的一部分返回。如果没有指定字段，那么响应中不包含任何存储字段。如果指定了这个字段，则`_source`字段默认为`false`。使用`stored_fields`只能检索叶子字段。不能返回对象字段；如果指定对象字段就会请求失败。
+- version Number 版本号
+  用于并发控制的版本号，当文档版本等于当前查询指定的版本，才能检索出文档
+- version_type String
+  值可以是
+    - internal, 内部控制，从1开始，每次更新或删除时递增
+    - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+    - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+    - force 已经弃用，因为可能导致 主分片和副本分片分离
+
+#### Responses
+200
+
+## Get multiple documents 获取多个文档
+格式
+```http request
+GET /_mget
+POST /_mget
+
+GET /{index}/_mget
+POST /{index}/_mget
+```
+从一个或多个索引中通过 `ID` 获取多个 JSON 文档。如果在请求 URI 中指定了索引，则只需在请求体中指定文档 `ID`。为确保快速响应，如果一个或多个分片失败，此多获取（`mget`）API 将返回部分结果。
+
+### Filter source fields 过滤源字段
+默认情况下，每个文档都会返回 _source 字段（如果存储了）。使用 `_source` 和 `_source_include` 或 `source_exclude` 属性来过滤特定文档返回的字段。您可以在请求 URI 中包含 `_source` 、 `_source_includes` 和 `_source_excludes` 查询参数，以指定在没有每个文档指令时使用的默认值。
+
+### Get stored fields 获取存储字段
+使用 `stored_fields` 属性来指定您要检索的存储字段集。任何未存储的请求字段将被忽略。您可以在请求 URI 中包含 `stored_fields` 查询参数，以指定在没有每个文档指令时使用的默认值。
+
+### Required authorization 所需权限
+- index privileges: read
+
+### Path parameters 路径参数
+- id String Required
+检索文档时使用的索引名称，当指定 `ids` 时，或者当 `docs` 数组中的文档未指定索引时。
+
+### Query parameters 查询参数
+- preference String 首选项
+  应该在哪个节点或分片上执行，默认再分片和副本间随机变化
+  如果设置为_local,则操作优先中本地分配的分片上执行。如果设置为自定义值，则该值用于确保相同的自定义值用于相同的分片，有助于在不同的刷新状态下访问不同分片时进行“跳跃值”操作。例如可以使用`web session ID`或者用户名。
+- realtime boolean
+  true的时候请求是实时的，而不是近实时的。
+- refresh Boolean
+  如果是`true`，会在请求检索文档之前刷新相关分片。需要考虑并确认这个操作不会给系统造成过重负载。
+- routing String
+  用于将操作路由到特定分片的自定义值
+- _source Boolean | String | Array[String]
+  标识返回是否包含`_source`字段（true或false）或列出要返回的字段
+- _source_excludes String | Array[String]
+  从响应中排除的源字段。也可以从`_source_includes`查询参数中指定的子集中排除字段。如果`_source`是`false`，就会忽略这个参数。
+- _source_exclude_vectors Boolean 在9.2.0版本中添加
+  是否应从`_source`排除向量
+- _source_includes String,Array[String]
+  要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用_source_excludes，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
+- stored_fields String|Array[String]
+  以逗号分隔存储的字段列表，作为命中的一部分返回。如果没有指定字段，那么响应中不包含任何存储字段。如果指定了这个字段，则`_source`字段默认为`false`。使用`stored_fields`只能检索叶子字段。不能返回对象字段；如果指定对象字段就会请求失败。
+
+### Body Required
+- docs Array[Object]
+您要检索的文档。如果请求 URI 中没有指定索引，则必需。
+  - _id String Required
+  - _index String
+  - routing String
+  - _source Boolean | Object 如果是boolean 值包含 stored_fields、version、version_type
+  - ids String | Array[String]
+
+### Response 
+200
+- docs Array[Object]  响应包含一个 `docs` 数组，其中包含按请求中指定的顺序排列的文档。返回的文档结构与 `get` API 返回的结构相似。如果获取特定文档时失败，则用错误信息替换该文档。
+如果是成功请求
+  - _index String Required
+  - fields Object : 如果 `stored_fields` 参数为`true` 且 `found` = `true`，就包含索引中存储的文档字段。
+  - _ignored Array[String]
+  - found Boolean Required
+  - _id String Required
+  - _primary_term number. 操作成功的时候有值,操作的主分片的任期号
+  - _routing String 显示路由
+  - _seq_no Number
+  - _source Object 如果 `found` 等于 `true` ，它包含格式为 JSON 的文档数据。如果 `_source` 参数设置为 `false` 或 `stored_fields` 参数设置为 `true` ，则会被排除。
+  - _version Number
+如果是失败请求
+  - type String Required：错误类型
+  - reason String ｜ Null
+  - stack_trace String ：服务器堆栈跟踪。仅当请求中包含` error_trace=true`参数时才显示。
+  - caused_by Object: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+  - root_cause Array｜Object：请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+  - suppressed Array[Object]: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+  - _id String Required 
+  - _index String Required
+
 
 
 
