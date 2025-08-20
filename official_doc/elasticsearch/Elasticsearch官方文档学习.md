@@ -2700,8 +2700,22 @@ POST my-index-000001/_update_by_query?refresh&slices=5
 }
 ```
 
+## Throttle an update by query operation 通过查询限制更显操作
+格式
+```http request
+POST /_update_by_query/{task_id}/_rethrottle
+```
+更改特定 `update by query` 操作的每秒请求数量。加速查询的 `rethrottle` 立即生效，而减速查询的 `rethrottle` 则在完成当前批次后才生效，以防止滚动超时。
 
+### Path parameters
+- task_id String Required
 
+### Query parameters
+- requests_per_second Number 此请求在子请求每秒的节流限制。要关闭节流，将其设置为 -1 。
+
+### Responses
+200
+- nodes Object Required
 
 
 
