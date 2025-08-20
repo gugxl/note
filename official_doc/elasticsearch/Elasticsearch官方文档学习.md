@@ -1967,20 +1967,198 @@ GET /my-index-000001/_termvectors/1?fields=message
 
 您可以请求三种类型的值：`term information, term statistics, `and `field statistics`。默认情况下，所有字段都会返回所有词信息和字段统计信息，但词统计信息除外。
 
+### Term information
+- term frequency in the field (always returned) 字段词频 一直返回
+- term positions (positions: true) 词位置
+- start and end offsets (offsets: true) 起始和结束偏移量
+- term payloads (payloads: true), as base64 encoded bytes 词语载荷
+  如果请求的信息未存储在索引中，如果可能，它将实时计算。此外，即使文档不存在于索引中，而是由用户提供，也可以为这些文档计算术语向量。
 
+> 开始和结束偏移量假定使用 UTF-16 编码。如果您想使用这些偏移量来获取生成此标记的原始文本，您应该确保您从中获取子字符串的字符串也使用 UTF-16 编码。
 
+### Behaviour 行为
+术语和字段统计信息不准确。已删除的文档不会被考虑。这些信息仅检索请求文档所在的分片。因此，术语和字段统计信息仅作为相对度量有用，而绝对数字在此上下文中没有意义。默认情况下，当请求人工文档的术语向量时，会随机选择一个分片来获取统计信息。仅使用 `routing` 来命中特定分片。有关如何使用此 API 的详细示例，请参阅链接文档。
+[词向量](#词向量)
 
+### Required authorization
+- Index privileges: read
 
+### Path parameters
+- index String Required
+- id String Required
 
+### Query parameters
+- fields String | Array[String]  一个逗号分隔的列表或通配符表达式，指定要在统计中包含的字段。如果没有在 `completion_fields` 或 `fielddata_fields` 参数中提供特定的字段列表，则用作默认列表。
+- field_statistics Boolean 如果 `true` ，响应将包括文档计数、文档频率之和以及总词频之和。
+- offsets Boolean 如果 `true` ，响应将包含词项偏移量。
+- payloads Boolean 如果 `true` ，响应将包含词项负载。
+- positions Boolean 如果 `true` ，响应将包含词项位置。
+- preference String 操作应在其上执行的节点或分片。默认情况下是随机的。
+- realtime Boolean 如果为 `true`，请求是实时而不是近实时的。
+- routing String 用于将操作路由到特定分片的自定义值。
+- term_statistics Boolean 如果为真，响应将包含词频和文档频。
+- version Number 如果 true ，则将文档版本作为命中的一部分返回。
+- version_type String
+  值可以是
+    - internal, 内部控制，从1开始，每次更新或删除时递增
+    - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+    - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+    - force 已经弃用，因为可能导致 主分片和副本分片分离
+### Body
+- docs Array[Object]
+  一个现有或人工文档的数组。
+    - _id String Required
+    - _index String
+    - doc Object
+    - fields String | Array[String]
+    - field_statistics Boolean 如果 true ，则响应包含文档数量、文档频率之和以及总词频之和。 默认值是true
+    - filter String | Array[String]
+        - max_doc_freq Number 文档中超过数量的词语进行忽略。 默认无限制。
+        - max_num_terms Number 每个字段必须返回的最大词数量。默认25
+        - max_term_freq Number 忽略源文档中出现频率超过此值的词。 默认无限制。
+        - max_word_length Number 超过此最大词长度的词将被忽略。 默认无限制（0 代表无限制）。
+        - min_doc_freq Number 忽略在至少这么多文档中未出现的术语。默认值1
+        - min_term_freq Number 忽略源文档中频率低于此值的词。默认值1
+        - min_word_length Number 忽略长度低于此值的词。默认值0
+    - offsets Boolean 如果 `true` ，响应将包含词项偏移量。,默认值`true`。
+    - payloads Boolean 如果 `true` ，响应将包含词项负载。默认值`true`。
+    - positions Boolean 如果 `true` ，响应将包含词项位置。默认值`true`。
+    - routing String
+    - term_statistics Boolean 如果为 `true`，响应将包含词项频率和文档频率。默认值为 `false` 。
+    - version Number
+      跟之前的一样是非负的长整数
+    - version_type String
+      值可以是
+        - internal, 内部控制，从1开始，每次更新或删除时递增
+        - external, 版本高于文档版本或者文档不存在的时候才能编辑文档
+        - external_gte, 版本高于或等于文档版本或者文档不存在的时候才能编辑文档，需要谨慎使用，可能会导致数据丢失
+        - force 已经弃用，因为可能导致 主分片和副本分片分离
 
+### Responses
+200
+- found Boolean
+- _id String Required
+- _index String
+- term_vectors Object
+    - field_statistics Object
+        - doc_count Number Required
+        - sum_doc_freq Number Required
+        - sum_ttf Number Required
+    - trems Object Required
+- error
+    - type String Required：错误类型
+    - reason String ｜ Null
+    - stack_trace String ：服务器堆栈跟踪。仅当请求中包含` error_trace=true`参数时才显示。
+    - caused_by Object: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+    - root_cause Array｜Object：请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+    - suppressed Array[Object]: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+- took Number Required
+- _version  Number
 
+## Update a document 更新文档
+格式
+```http request
+POST /{index}/_update/{id}
+```
+通过运行脚本或传递部分文档来更新文档。
 
+如果启用了 Elasticsearch 的安全功能，您必须对目标索引或索引别名具有 `index` 或 `write` 索引权限。
 
+脚本可以更新、删除或跳过修改文档。该 API 还支持传递部分文档，该文档将与现有文档合并。要完全替换现有文档，请使用 `index` API。此操作：
+- 从索引中获取文档（与分片共存）。
+- 运行指定的脚本。
+- 对结果进行索引。
 
+文档仍需重新索引，但使用此 API 可以减少一些网络往返次数，并降低 GET 操作和索引操作之间的版本冲突几率。
 
+使用此 API 必须启用 `_source` 字段。除了 `_source` ，您可以通过 `ctx` 映射访问以下变量： `_index` 、 `_type` 、 `_id` 、 `_version` 、 `_routing` 和 `_now` （当前时间戳）。有关部分更新、`upsert` 和脚本更新的使用示例，请参阅外部文档。
 
+[Update a document](#Update-a-document)
 
-    
+### Required authorization
+- Index privileges: `write`
+
+### Path parameters
+- index String Required
+- id String Required
+
+### Query parameters
+- if_primary_term Number 主分片版本号一致才执行
+- if_seq_no Number 当文档的序列化是这个值的时候才执行
+- include_source_on_error Boolean
+    当值为`ture`，当索引文档出现解析错误`（parsing error）`的时候，错误消息会包含整个文档的`_source`内容
+    当值为`false`，错误信息不包含`_source`，只显示错误原因。
+- lang String
+- refresh String
+    如果为 `true`，Elasticsearch 将刷新受影响的分片，使此作对搜索可见。如果 `wait_for`，它会等待刷新以使此作对搜索可见。如果为 `false`，则刷新不执行任何作。
+- require_alias Boolean
+  true 代表必须是索引的别名
+- retry_on_conflict Number 发生冲突时操作应重试的次数。
+- routing String 用于将操作路由到特定分片的自定义值。
+- timeout String
+  请求等待以下操作的时间；自动索引创建、动态映射更新和等待活动分片。默认值是`1min`，保证Elasticsearch值失败之亲啊的至少等待超时。实际时间可能会更长，当发生多个等待的时候。
+可以设置值是 0 代表不等待, -1 一直等待
+- wait_for_active_shards Number | string
+  批量操作必须等待至少多少个分片副本处于活动状态。可以设置为`all`或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`),默认是1,等待每个主分片处于活动状态.
+- _source Boolean | String | Array[String]
+  标识返回是否包含`_source`字段（true或false）或列出要返回的字段
+- _source_excludes String | Array[String]
+  从响应中排除的源字段。也可以从`_source_includes`查询参数中指定的子集中排除字段。如果`_source`是`false`，就会忽略这个参数。
+- _source_includes String,Array[String]
+  要包含着响应中的源字段的列表。如果使用这个字段，就会仅返回这些源字段。也可以使用`_source_excludes`，在子集中继续排除，如果`_source`是`false`，就会忽略这个参数。
+
+### Body Required
+- detect_noop Boolean
+  如果是`true`，当文档没有变化时，响应中的 `result` 被设置为 `noop` （无操作）。默认值是 `true`
+- doc Object 对现有文档的部分更新。如果同时指定了 `doc` 和 `script` ，则忽略 `doc` 。
+- doc_as_upsert Boolean 如果 `true` ，则使用 '`doc`' 的内容作为 '`upsert`' 的值。注意：不支持使用 `doc_as_upsert` 与摄取管道一起使用。默认值 `false`
+- script Object
+  - source String | Object 
+如果是String
+    - id String 
+    - params Object 指定作为变量传递到脚本中的任何命名参数。 使用参数而不是硬编码的值来减少编译时间。
+    - lang String 值是 `painless` 、 `expression` 、 `mustache` 或 `java` 。
+    - options Object
+- scripted_upsert Boolean 如果 `true`，无论文档是否存在，都运行脚本。默认值 `false`。
+- _source Boolean | Object 定义获取源的方式。可以完全禁用获取，或者可以过滤源。
+  - exclude_vectors Boolean 如果 `true` ，返回的源中会排除向量字段。此选项优先于 `includes` ：即使向量字段与 `includes` 规则匹配，也会被排除。
+  - excludes String | Array[String]
+  - includes String | Array[String]
+- upsert Object 如果文档不存在，'`upsert`' 的内容将作为新文档插入。如果文档存在，将运行 '`script`'。
+### Responses
+200
+- _id String Required
+- _index String Required
+- _primary_term number. 操作成功的时候有值,操作的主分片的任期号
+- result string. 操作的结果,值可能出现的范围:[`created` | `updated` | `deleted` | `not_found` | `noop`]
+- _seq_no number
+- _shards Object.
+    - failed number Required
+    - successful number Required
+    - total number Required
+    - failures Array[Object]
+        - index String
+        - node String
+        - reason Object Required
+            - type String Required
+            - reason String | Null
+            - stack_trace String
+            - cased_by Object
+            - root_cause Array[Object]
+            - suppressed Array[Object]
+        - shard Number Required
+        - status String
+    - skipped number
+- _version  number
+- forced_refresh  boolean 
+- get Object
+  - fields Object
+  - found Boolean Required
+  - _seq_no Number
+  - _primary_term number. 操作成功的时候有值,操作的主分片的任期号
+  - _routing String 路由
+  - _source Object
+
 
 
 
@@ -2354,3 +2532,8 @@ GET logs/_search
 [reindex](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/reindex-indices)
 
 
+## 词向量
+[Term vectors](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/term-vectors-examples)
+
+## Update a document
+[Update a document](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/update-document)
