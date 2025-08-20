@@ -2159,7 +2159,145 @@ POST /{index}/_update/{id}
   - _routing String 路由
   - _source Object
 
+### 示例
+使用脚本来递增计数器
+```http request
+POST test/_update/1
+{
+  "script" : {
+    "source": "ctx._source.counter += params.count",
+    "lang": "painless",
+    "params" : {
+      "count" : 4
+    }
+  }
+}
+```
+脚本式 `upsert`。 当 `scripted_upsert` 设置为 `true` 时，无论文档是否存在，脚本都会被执行。
+```http request
+POST test/_update/1
+{
+  "scripted_upsert": true,
+  "script": {
+    "source": """
+      if ( ctx.op == 'create' ) {
+        ctx._source.counter = params.count
+      } else {
+        ctx._source.counter += params.count
+      }
+    """,
+    "params": {
+      "count": 4
+    }
+  },
+  "upsert": {}
+}
+```
 
+执行 `doc` 作为 `upsert`。
+与其发送一个部分更新的 `doc` 加上一个单独的 `upsert` 文档，不如将 `doc_as_upsert` 设置为 `true`，这样就会直接使用 `doc` 的内容作为 `upsert` 文档。
+```http request
+POST test/_update/1
+{
+  "doc": {
+    "name": "new_name"
+  },
+  "doc_as_upsert": true
+}
+```
+使用脚本向一个标签列表中添加标签。在这个示例中，它只是一个普通列表，所以即使标签已经存在，也会再次被添加。
+```http request
+POST test/_update/1
+{
+  "script": {
+    "source": "ctx._source.tags.add(params.tag)",
+    "lang": "painless",
+    "params": {
+      "tag": "blue"
+    }
+  }
+}
+```
+
+脚本移除标签
+```http request
+POST test/_update/1
+{
+  "script": {
+    "source": "if (ctx._source.tags.contains(params.tag)) { ctx._source.tags.remove(ctx._source.tags.indexOf(params.tag)) }",
+    "lang": "painless",
+    "params": {
+      "tag": "blue"
+    }
+  }
+}
+```
+
+脚本添加字段
+```http request
+POST test/_update/1
+{
+  "script" : "ctx._source.new_field = 'value_of_new_field'"
+}
+```
+脚本移除字段
+```http request
+POST test/_update/1
+{
+  "script" : "ctx._source.remove('new_field')"
+}
+```
+移除子字段
+```http request
+POST test/_update/1
+{
+  "script": "ctx._source['my-object'].remove('my-subfield')"
+}
+```
+运行` POST test/_update/1 `来改变脚本内部执行的操作。例如，如果文档的 `tags` 字段包含 "`green`"，这个请求会删除该文档，否则什么也不做（`noop`）。
+```http request
+POST test/_update/1
+{
+  "script": {
+    "source": "if (ctx._source.tags.contains(params.tag)) { ctx.op = 'delete' } else { ctx.op = 'noop' }",
+    "lang": "painless",
+    "params": {
+      "tag": "green"
+    }
+  }
+}
+```
+
+执行部分更新，为已有文档添加一个新字段。
+```http request
+POST test/_update/1
+{
+  "doc": {
+    "name": "new_name"
+  }
+}
+```
+
+如果文档存在执行脚本，如果不存在创建文档
+```http request
+POST test/_update/1
+{
+  "script": {
+    "source": "ctx._source.counter += params.count",
+    "lang": "painless",
+    "params": {
+      "count": 4
+    }
+  },
+  "upsert": {
+    "counter": 1
+  }
+}    
+```
+
+
+## Update documents 更新多个文档
+格式
 
 
 
