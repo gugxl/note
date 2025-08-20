@@ -963,9 +963,9 @@ POST _tasks/r1A2WoRbTwKZ516z6NEs5A:36619/_cancel
     - caused_by Object: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
     - root_cause Array｜Object：请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
     - suppressed Array[Object]: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
-- id String Required
-- index String Required
-- status Number Required
+  - id String Required
+  - index String Required
+  - status Number Required
 - noops Number：通过查询删除，这个字段的值是0。仅存在以便通过查询删除、通过查询更新和重新索引API返回相同的结构响应。
 - request_per_second Number：每秒请求数，通过查询删除期间每秒实际运行的请求数量
 - retries Object：
@@ -2298,6 +2298,490 @@ POST test/_update/1
 
 ## Update documents 更新多个文档
 格式
+```http request
+POST /{index}/_update_by_query
+```
+更新符合指定查询的文档。如果没有指定查询，则对数据流或索引中的每个文档执行更新，而不会修改源数据，这对于获取映射更改很有用。
+如果启用了 Elasticsearch 安全功能，您必须对目标数据流、索引或别名具有以下索引权限：
+- read
+- index or write
+
+可以在请求 URI 或请求体中指定查询条件，使用与搜索 API 相同的语法。
+
+当您提交通过查询更新请求时，Elasticsearch 在开始处理请求时获取数据流或索引的快照，并使用内部版本控制更新匹配的文档。当版本匹配时，文档会被更新并且版本号会递增。如果在快照获取和更新操作处理之间文档发生变化，会导致版本冲突，操作失败。您可以选择计数版本冲突而不是停止并返回，通过将 `conflicts` 设置为 `proceed` 。请注意，如果您选择计数版本冲突，操作可能会尝试从源中更新比 `max_docs` 更多的文档，直到它成功更新了 `max_docs` 个文档或已经处理了源查询中的每个文档。
+
+> 注意：版本等于 0 的文档无法使用通过查询更新，因为内部版本控制不支持 0 作为有效的版本号。
+
+在处理通过查询更新请求时，Elasticsearch 会依次执行多个搜索请求以查找所有匹配的文档。对每批匹配的文档执行批量更新请求。任何查询或更新失败都会导致通过查询更新请求失败，并且失败情况会显示在响应中。任何成功完成的更新请求仍然会保留，它们不会被回滚。
+
+### Refreshing shards 刷新分片
+指定 refresh 参数会在请求完成后刷新所有分片。这与更新 API 的 `refresh` 参数不同，后者只会刷新接收请求的分片。与更新 API 不同，它不支持 `wait_for` 。
+
+### Running update by query asynchronously 异步执行通过查询更新
+如果请求包含 `wait_for_completion=false` ，Elasticsearch 会执行一些预检，启动请求，并返回一个任务，你可以使用该任务来取消或获取任务状态。Elasticsearch 将此任务记录为 `.tasks/task/${taskId}` 中的一个文档。
+
+### Waiting for active shards
+`wait_for_active_shards` 控制在继续处理请求之前，必须有多少个分片副本处于活跃状态。详细信息请参阅 `wait_for_active_shards` 。 `timeout` 控制每个写请求等待不可用分片变得可用的时长。它们的工作方式与 `Bulk API` 中完全相同。通过查询更新使用滚动搜索，因此你也可以指定 `scroll` 参数来控制搜索上下文保持活跃的时间，例如 `?scroll=10m` 。默认值为 5 分钟。
+
+### Throttling update requests 限制更新请求
+要控制通过查询更新操作批次的速度，可以将 `requests_per_second` 设置为任何正小数。这将向每个批次添加等待时间以限制速度。将 `requests_per_second` 设置为 `-1` 可关闭限速。
+
+限速在批次之间使用等待时间，以便内部滚动请求可以有一个考虑请求填充的超时。填充时间是批次大小除以 `requests_per_second` 与写入所花费时间的差值。默认情况下，批次大小为 `1000`，因此如果 `requests_per_second` 设置为 `500` ：
+
+```http request
+target_time = 1000 / 500 per second = 2 seconds
+wait_time = target_time - write_time = 2 seconds - 0.5 seconds = 1.5 seconds
+```
+由于批次作为单个 `_bulk` 请求发出，较大的批次大小会导致 Elasticsearch 创建许多请求并在开始下一批次之前等待。这是“突发”而不是“平滑”。
+
+### Slicing 切片
+更新查询支持切片滚动以并行化更新过程。这可以提高效率，并提供一种方便的方式将请求分解为更小的部分。
+
+将切片设置为`auto`,允许Elasticsearch选择要使用的切片（`slice`）数量。此设置将每个分片(shard)分配一个切片，但是有最大限制。如果有多个源数据流或索引，他将根据分片数量最少的索引或底层索引（`backing index`）来选择切片数量。将切片添加到“通过查询更新”作为创建子请求，因此他有一些特殊的行为。
+- 可以在任务API中查看这些请求，这些子请求是具有切片的请求的任务的子任务
+- 获取具有切片请求的任务状态仅包含已经完成的切片的状态
+- 这些子请求（`sub-requests`）是可以单独访问/操作的，比如可以单独取消他们，或者重新调整他们的限速（`rethrottling`）
+- 重新限流请求 `slices`将按比例重新限流未完成的子请求
+- 取消`slices`将取消每个子请求
+- 由于`slices`的性质，每个子请求不会得到完全均匀的文档分配，所有文档都将被处理，但是某些切片会比别的切片更大。预期较大的切片会有更均匀的分布。
+- 在带有`slices`的请求中，参数 `requests_per_second`和 `max_doc`将按比例分配给每个子请求。结合之前关于分配可能不均匀这一点，你应该得出结论，使用`max_docs`和`slices`结合可能不能导致恰好更新 `max_docs`整个文档。
+- 每个子请求都会得到`data stream`或索引略有不同的快照，尽管这些快照是在大约相同时间获取的。
+
+如果你是手动切片或者以其他方式调整自动切片，需要注意下面几点
+- 查询性能在切片数量等于索引或底层索引的分片数量的时候最高。如果数字很大（例如500），应该选择比较小的数字，因为过多的 `slices`会影响性能，将`slices`的数量设置为高于分片的数量的值通常不会提高效率，反而会增加额外开销。
+- 更新性能随可用资源的切片数量线性提高
+
+查询性能还是更新性能在运行时占主导地位，取决于重新索引的文档和集群资源
+参考 [更新查询 API](#更新查询)
+
+### Required authorization
+- Index privileges: read,write
+
+### Path parameters
+- index String | Array[String] Required
+  一个用逗号分隔的数据流、索引和别名列表，用于搜索。它支持通配符（ * ）。要搜索所有数据流或索引，请省略此参数或使用 * 或 _all 。
+
+### Query parameters
+- allow_no_indices Boolean
+  如果是`false`,当任何通配符表达式、索引别名或`_all`值仅针对缺失或已经关闭的索引时，，请求返回错误。即使请求针对其他开放索引，规则也适用。如果一个索引是以 `foo` 开头，但是没有以 `bar` 开头的索引，那么针对 `foo*,bar*` 请求将会返回错误.
+- analyzer String 分析器
+  用于查询字符串的分析器，当且仅当指定了 `q`查询字符串参数时才可以使用。
+-  analyze_wildcard Boolean
+   如果是 `true`则分析通配符和前缀查询。当且仅当指定了 `q`查询字符串参数时才可以使用。
+- conflicts String
+  如果通过查询删除的时候遇见版本冲突该怎么办：`abort` 还是 `proceed`
+  Supported values include 支持的值包括
+    - abort：如果存在冲突，就停止重新索引
+    - proceed： 即使纯真冲突也继续重新索引
+- default_operator String
+  查询字符串默认运算符：`AND` 或 `OR` 。当且仅当指定了 `q`查询字符串参数时才可以使用。
+- df String 当查询的字符串中为提供字段前缀时，用作默认字段的字段。当且仅当指定了 `q`查询字符串参数时才可以使用。
+- expand_wildcards String ｜ Array[String] 通配符模式可以匹配的索引的类型。如果请求可以定位数据流。支持逗号分隔的值，eg `open,hidden`.支持的值包括：
+    - all ： 匹配任何的数据流和索引，包含隐藏的数据流和索引
+    - open： 匹配开放的非隐藏的索引和数据流
+    - closed；匹配已关闭的非隐藏索引。也匹配任意非隐藏的数据流。数据流无法关闭。
+    - hidden：匹配隐藏的数据流和隐藏的索引。必须与 `open`、`close`或 `both`结合使用
+    - none: 不接受通配符表达式
+- form Number 跳过指定数量的文档
+- ignore_unavailable Boolean：忽略不可用，如果是`false`,当请求针对缺失或关闭的索引时，返回错误。
+- lenient Boolean：如果是`true`,查询字符串基于格式的查询失败（例如，向数字字段提供文本）将被忽略。当且仅当指定了 `q`查询字符串参数时才可以使用。
+- max_docs Number ：需要处理的最大文档数。默认所有文档。如果设置小于或等于`scroll_size`值，则不会使用滚动来检索操作的结果。
+- preference String：执行操作的节点或分片，默认是随机的
+- q String  一个使用 Lucene 查询字符串语法的查询。
+- refresh Boolean：
+  如果为 `true`，Elasticsearch会在请求完成后刷新`delete by`查询中涉及的所有分片。这个和delete API的refresh参数不同，后者仅刷新收到删除请求的分片。并且这里不支持 `wait_for`。
+- request_cache Boolean： 如果是true，表示请求中使用请求缓存。默认是索引级别的设置。
+- requests_per_second Number：每秒请求数量，请求的限制（以每秒子请求数量计算）
+- routing String：用于将操作路由到特定分片的自定义值。
+- q String：Lucene 查询字符串语法中的查询。
+- scroll String：保留搜索上下文以进行滚动的时间段，可以是 `-1` 或 `0`
+- scroll_size Number：支持该操作的滚动请求的大小。
+- search_timeout String：每次搜索请求的显式超时时间，默认无超时。可以为`0`或`-1`
+- search_type String: 搜索操作的类型。可以选`query_then_fetch` 和 `dfs_query_then_fetch`
+    -  query_then_fetch:文档的打分是基于分片内的本地词频和文档频率来计算的。这种方式通常更快，但准确性较低
+    - dfs_query_then_fetch：使用所有分片中的全局词频和文档频率对文档进行评分。这种速度较慢，但更准确。
+- slices Number｜String 切片数，可以为auto或数字（该任务应该划分的切片数）
+- sort Array[String] ：以逗号分隔的 `<field>:<direction>`的列表
+- stats Array[String]:用于记录和统计目的的请求的特定的`tag`
+- terminate_after : 每个分片可收集的最大文档数。如果查询达到这个限制，Elasticsearch会提前终止查询。Elasticsearch会在排序之前收集文档。需要谨慎使用。Elasticsearch会将此参数应用与处理请求的每个分片。如果可能，请让Elasticsearch自动执行提前终止。如果请求的目标数据流包含跨很多歌数据层的支持索引，请避免使用这个参数。
+- timeout String：每个删除请求等待活动分片的时间，可以为 `-1` 或 `0 `
+- version Boolean:如果是`true`则返回文档版本作为匹配的一部分
+- wait_for_active_shards Number|String
+  继续操作之前必须等待至少多少个分片副本处于活动状态。可以设置为`all`或者任意正整数,最大是索引中分片副本数(`number_of_replicas+1`)。`timeout`值控制每个写入win各位iu放入哪个粉丝不可用分片的可用时间,值可以是 `all` 或 `index_setting`.
+- wait_for_completion Boolean
+  如果是`true`,请求会被阻塞，直到操作完成。如果是 `false`,Elasticsearch会执行一些预检查，启动请求，并返回一个任务，可以使用该任务取消或获取其状态。Elasticsearch会在 .tasks/task/${taskId}中创建此任务的记录作为文档。完成任务后，可以删除这个任务文档，以便Elasticsearch回收空间。
+
+### Body
+- max_docs Number： 要更新的最大文档数
+- query Object：定义Elasticsearch查询DSL对象 [参考文档](#Query-DSL)
+- script Object
+    - source String | Object 如果是Object
+        - aggregations Object 定义作为搜索请求一部分运行的聚合。 [参考文档](#Aggregations)
+        - collapse Object [参考文档](#Collapse-search-results)
+        - explain Boolean 如果 `true` ，请求将返回关于分数计算的详细信息作为命中的一部分。默认值`false`
+        - ext Object Elasticsearch 插件定义的搜索扩展的配置。
+        - from Number 起始文档偏移量，必须是非负数。默认情况下，您无法使用 `from` 和 `size` 参数分页浏览超过 · 个命中。要分页浏览更多命中，请使用 `search_after` 参数。默认值 0 。
+        - highlight Object
+            - type String 值是 `plain` ， `fvh` ，或 `unified` 。
+            - boundary_chars String 包含每个边界字符的字符串。 默认值为 `.,!? \t\n` 。
+            - boundary_max_scan Number 扫描边界字符的距离。默认值为 `20` 。
+            - boundary_scanner String 边界扫描器，值是 `chars` ， `sentence` ，或 `word` 。
+            - boundary_scanner_locale String 边界扫描器语言,控制使用哪种语言环境来搜索句子和单词边界。此参数采用语言标签的形式，例如： `"en-US" ， "fr-FR" ， "ja-JP"` 。默认值为 Locale.ROOT 。
+            - force_source Boolean Deprecated 强制使用源[弃用]
+            - fragmenter String 片段化字符串 值为 `simple` 或 `span` 。
+            - fragment_size Number 片段大小（数字） 高亮片段的字符大小。默认值为 `100` 。
+            - highlight_filter Boolean
+            - highlight_query Object 使用DSL查询 [query dsl](#query-dsl)
+            - max_fragment_length Number
+            - max_analyzed_offset number 如果设置为非负值，高亮显示将在定义的最大限制处停止。其余文本不会被处理，因此不会被高亮显示，也不会返回错误。 `max_analyzed_offset` 查询设置不会覆盖 `index.highlight.max_analyzed_offset` 设置，当 `index.highlight.max_analyzed_offset` 设置的值低于查询设置时，`index.highlight.max_analyzed_offset` 设置将优先。
+            - no_match_size Number 如果没有匹配的片段需要高亮显示，则希望从字段的开始返回的文本量。默认值为 0 。
+            - number_of_fragments Number 要返回的最大片段数。如果片段数设置为 0 ，则不返回任何片段。相反，将高亮显示并返回整个字段内容。这在您需要高亮显示标题或地址等短文本但不要求片段化时很有用。如果 `number_of_fragments` 等于 `0` ，则忽略 `fragment_size` 。
+            - options Object
+            - order String 值为 score
+            - phrase_limit Number 控制文档中考虑的匹配短语数量。防止 `fvh` 高亮器分析过多短语并消耗过多内存。在使用 `matched_fields` 时，每个匹配字段考虑 `phrase_limit` 个短语。提高限制会增加查询时间并消耗更多内存。仅由 `fvh` 高亮器支持。默认值为 256 。
+            - post_tags Array[String] 与 `pre_tags` 结合使用，以定义用于高亮文本的 HTML 标签。默认情况下，高亮文本被包裹在 <em> 和 </em> 标签中。
+            - pre_tags Array[String] 与 `post_tags` 结合使用，以定义用于高亮文本的 HTML 标签。默认情况下，高亮文本被包裹在 <em> 和 </em> 标签中。
+            - require_field_match Boolean 默认情况下，仅包含查询匹配的字段会被高亮。设置为 `false` 以高亮所有字段。默认值为 true 。
+            - tags_schema String  值为 `styled` 。
+            - encoder String 值为 `default` 或 `html` 。
+            - fields Object | Array[Object] Required
+        - track_total_hits Boolean | Number 表示匹配查询的准确命中数。如果为 `true`，则以牺牲部分性能为代价返回确切的命中数。如果为 `false`，则响应不包含匹配查询的命中总数。默认值为 `10,000` 个命中。
+        - indices_boost Array[Object] 提升指定索引中文档的 `_score` 数量。提升值是用于乘以得分的因子。大于 `1.0` 的提升值会增加得分。在 `0` 和 `1.0` 之间的提升值会降低得分。 参考文档 [参考文档](#Query-and-filter-context)
+        - docvalue_fields Array[Object] 一个通配符 ( `*` ) 字段模式的数组。请求返回匹配这些模式在响应的 `hits.fields` 属性中字段名的 `doc` 值。
+            - field String Required 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+            - format String 返回值的格式。
+            - include_unmapped Boolean 用来控制 是否对未映射字段（unmapped field）也返回聚合结果
+        - knn Object|Array[Object] 运行近似 kNN 搜索 参考文档[knn-search](#knn-search) 如果是Object
+            - field String Object 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+            - query_vector Array[Number]
+            - query_vector_builder Object
+                - text_embedding Object
+            - k Number 返回作为顶级命中的最终最近邻数量
+            - num_candidates Number 每个分片考虑的最近邻候选数量
+            - boost Number 应用于 kNN 分数的提升值
+            - filter Object|Array[Object] kNN 搜索查询的过滤器
+              如果是Object 是DSL语言 [query-dsl](#query-dsl)
+            - similarity Number 向量被视为匹配的最小相似度
+            - inner_hits Object
+                - name String
+                - size Number 返回每个 `inner_hits` 的最大命中数。默认值为 `3` 。
+                - from Number 内部命中起始文档偏移量。默认值为 0 。
+            - collapse Object
+                - docvalue_fields Array[Object]
+                - explain Boolean
+                - highlight
+                - ignore_unmapped Boolean
+                - script_fields Object
+                - seq_no_primary_term Boolean
+                - fields Array[String] 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+                - sort
+                - _source
+                - stored_fields String|Array[String]
+                - track_scores Boolean 默认 `false`
+                - version Boolean
+            - rescore_vector object
+                - oversample Number Required 将指定的过采样因子应用于近似 kNN 搜索中的 k
+        - rank Object
+            - rrf Object
+                - rank_constant Number 单个查询中每个结果集的文档对最终排序结果集有多大影响
+                - rank_window_size Number每个查询中单个结果集的大小
+        - min_score Number 匹配文档的最小 `_score` 。评分低于 `_score` 的文档不会被包含在搜索结果或聚合结果中。
+        - post_filter Object DSL语言[query-dsl](#query-dsl)
+        - profile Boolean 设置为 `true` 将返回关于搜索请求中单个组件执行过程的详细时间信息。注意：这是一个调试工具，会对搜索执行造成显著的开销。默认值为 `false`
+        - query Object DSL语言[query-dsl](#query-dsl)
+        - rescore Object|Array[Object] 可用于通过重新排序 `query` 和 `post_filter` 阶段返回的顶部（例如 `100 - 500`）文档来提高精确度。
+            - window_size Number 窗口大小
+            - query Object
+            - learning_to_rank Object
+        - retriever Object
+            - standard Object
+                - filter
+                - min_score Number 匹配文档的最低 _score。_score 较低的文档不包含在顶级文档中。
+                - _name String 检索器名称。
+                - query Object DSL语言[query-dsl](#query-dsl)
+                - search_after Array[Number|String|Boolean|Null] 一个字段值
+                - terminate_after Number 每个分片收集的最大文档数量。
+                - sort
+                - collapse Object
+            - knn Object
+                - filter
+                - min_score Number 匹配文档的最小 _score。_score 较低的文档不会被包含在顶级文档中。
+                - _name String 检索器名称。
+                - field String Required 用于搜索的向量字段的名称。
+                - query_vector Array[Number]
+                - query_vector_builder Object
+                - k Number Required 返回作为顶级命中的最近邻数量。
+                - num_candidates Number Required 每个分片需要考虑的最近邻候选数量。
+                - similarity Number 文档被视为匹配所需的最小相似度。
+                - rescore_vector Object
+            - rff Object
+                - filter
+                - min_score 匹配文档的最小 _score。_score 较低的文档不会被包含在顶级文档中。
+                - _name String 检索器名称。
+                - retrievers Array[Object] Required 指定哪些返回的顶级文档集将应用 `RRF` 公式的一个子检索器列表。
+                - rank_constant Number 此值决定每个查询的各个结果集对最终排序结果集的影响程度。
+                - rank_window_size Number 此值决定每个查询的各个结果集的大小。
+                - query String
+                - fields Array[String]
+            - text_similarity_reranker Object
+                - filter
+                - min_score 匹配文档的最小 _score。_score 较低的文档不会被包含在顶级文档中。
+                - _name String 检索器名称。
+                - retrievers Array[Object] Required
+                - rank_window_size Number 此值决定每个查询的各个结果集的大小。
+                - inference_id String 使用推理 API 创建的推理端点的唯一标识符。
+                - inference_text String Required 用于相似度比较的文本片段
+                - field String Required 用于文本相似度比较的文档字段。该字段应包含将用于与推理文本进行比较的文本
+            - rule Object
+                - filter
+                - min_score 匹配文档的最小 _score。_score 较低的文档不会被包含在顶级文档中。
+                - _name String 检索器名称。
+                - ruleset_ids
+                - match_criteria Object Required 用于确定是否应应用所提供规则集中的规则的匹配条件。
+                - retriever Object Required
+                - rank_window_size Number 此值决定了单个结果集的大小。
+            - rescorer Object
+                - filter
+                - min_score 匹配文档的最小 _score。_score 较低的文档不会被包含在顶级文档中。
+                - _name String 检索器名称。
+                - retriever Object Required
+                - rescore
+            - linear Object
+                - filter
+                - min_score 匹配文档的最小 _score。_score 较低的文档不会被包含在顶级文档中。
+                - _name String 检索器名称。
+                - retrievers Array[Object]
+                - rank_window_size Number
+                - query String
+                - fields Array[String]
+                - normalizer string  值是 `none` ， `minmax` ，或 `l2_norm` 。
+            - pinned Obejct
+                - filter
+                - min_score 匹配文档的最小 _score。_score 较低的文档不会被包含在顶级文档中。
+                - _name String 检索器名称。
+                - retrievers Array[Object]
+                - ids Array[String]
+                - docs Array[Object]
+                - rank_window_size Number
+        - script_fields Object 为每个命中检索脚本评估（基于不同字段）。
+            - script Object Required
+            - ignore_failure Boolean
+        - search_after Array[Number|String|Boolean|Null] 一个字段值
+        - size Number 返回命中数的数量，不能为负。默认情况下，使用 `from` 和 `size` 参数无法分页浏览超过` 10,000` 个命中。要分页浏览更多命中，请使用 `search_after` 属性。默认值为 `10` 。
+        - slice Object
+            - field String 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+            - id String Required
+            - max Number Required
+        - sort String|Object|Array[String|Object]  如果是String 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。如果是Object
+            - _score Object
+            - _doc Object
+            - _geo_distance Object
+            - _script Object
+        - _source Boolean|Object 定义获取源的方式。获取可以完全禁用，或者源可以被过滤。如果是Object
+            - exclude_vectors Boolean 如果 `true` ，返回的源中会排除向量字段。此选项优先于 `includes` ：即使向量字段与 `includes` 规则匹配，也会被排除。
+            - excludes String|Array[String]
+            - includes String|Array[String]
+        - fields Array[Object] 一个通配符（ `*` ）字段模式的数组。请求返回匹配这些模式在 `hits.fields` 属性中的字段名称的值。一个包含格式说明的返回值字段引用
+            - field String Required 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+            - format String 返回值的格式。
+            - include_unmapped Boolean 用来控制 是否对未映射字段（unmapped field）也返回聚合结果
+        - suggest Object
+            - text String 全局建议文本，避免在多个建议器中使用相同文本时重复
+        - terminate_after Number 每个分片最多收集的文档数量。如果一个查询达到这个限制，Elasticsearch 会提前终止查询。Elasticsearch 在排序之前收集文档。 重要提示：**谨慎使用**。Elasticsearch 将此属性应用于处理请求的每个分片。在可能的情况下，让 Elasticsearch 自动执行早期终止。避免针对跨多个数据层的数据流索引的请求指定此属性。 如果设置为 0 （默认值），查询不会提前终止。默认值为 0 。
+        - timeout 等待每个分片响应的时间。如果在超时到期之前未收到响应，请求将失败并返回错误。默认情况下无超时设置。
+        - track_scores Boolean 如果 `true` ，即使分数不用于排序，也会计算并返回文档分数。默认值为 false 。
+        - version Boolean 如果 true ，请求将文档版本作为命中的一部分返回。默认值为 false 。
+        - seq_no_primary_term Boolean 如果 true ，请求将每个命中的最后修改的序列号和主术语返回。 [参考文档](#Optimistic-concurrency-control)
+        - stored_fields String|Array[String]
+        - pit Object
+            - id String Required
+            - keep_alive String 一个持续时间。单位可以是 `nanos` 、 `micros` 、 `ms` (毫秒)、 `s` (秒)、 `m` (分钟)、 `h` (小时) 和 `d` (天)。也接受没有单位的 "`0`" 和表示未指定值的 "`-1`"。
+        - runtime_mappings Object
+            - fields Object 对于类型 composite
+            - fetch_fields Array[Object] 对于类型 lookup
+            - format String date 类型运行时字段的自定义格式。
+            - input_field String 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+            - target_field String 字段路径或路径数组。某些 API 支持路径中的通配符来选择多个字段。
+            - target_index String
+            - script Object
+            - type String Required 值是 `boolean` ， `composite` ， `date` ， `double` ， `geo_point` ， `geo_shape` ， `ip` ， `keyword` ， `long` ，或 `lookup` 。
+            - stats Array[String] 与搜索关联的统计分组。每个分组为其关联的搜索维护一个统计聚合。您可以使用索引统计 API 检索这些统计信息。
+    - id String
+    - params string
+    - lang String 值是 `painless` 、 `expression` 、 `mustache` 或 `java` 。
+    - options Object
+- slice Object
+    - field String：字段路径或路径数组。某些API支持在路径中使用通配符来选择多个字段
+    - id String：Required
+    - max Number：Required
+- conflicts String 值为 `abort` 或 `proceed` 。
+
+### Responses
+200
+- batches Number 通过更新查询检索到的滚动响应数量。
+- failures Array[object]: 如果在过程中出现任何不可恢复的错误，就会包含一系列的失败。如果数组不为空，那么请求由于这些失败而异常结束。通过查询删除是通过批量实现的，任何失败都会导致整个过程结束，但当前批次的全部失败都会被收集到该数组，可以使用 `conflict`选项来方式由于版本冲突而重新索引的结束。
+    - cause Object Required：请求失败的成因和详细信息，定义了所有错误类型的共有属性，还提供了根据错误类型而变化的额外详细信息。
+        - type String Required：错误类型
+        - reason String ｜ Null
+        - stack_trace String ：服务器堆栈跟踪。仅当请求中包含` error_trace=true`参数时才显示。
+        - caused_by Object: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+        - root_cause Array｜Object：请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+        - suppressed Array[Object]: 请求失败的成因和详细信息。此类定义了所有的错误类型共有的属性。还提供了根据错误类型而变化的额外详细信息。
+    - id String Required
+    - index String Required
+    - status Number Required
+- noops Number 由于更新查询中使用的脚本为 `ctx.op` 返回了 `nooping` 值，而被忽略的文档数量。
+- deleted Number 成功删除的文档数量。
+- requests_per_second Number 在更新查询期间实际每秒运行的有效请求数量。
+- retries Object
+  - bulk Number Required 批量操作重试次数。
+  - search Number Required 搜索操作重试次数。
+- task String
+- timed_out Boolean 如果为 `true`，则在通过查询更新期间，某些请求超时了。
+- took Number 毫秒时间单位=
+- total Number 成功处理的文档数量。
+- updated Number 成功更新的文档数量。
+- version_conflicts Number 查询更新触发的版本冲突数量。
+- throttled String：一个持续时间。单位可以是 `nanos`、`micros`、`ms`、`s`、`m`、`h`和`d`。也可以使用没有单位的 `0` 和 `-1` 表示没有指定值。
+- throttled_millis Number 毫秒时间单位
+- throttled_until String 一个持续时间。 `nanos`、`micros`、`ms`、`s`、`m`、`h`和`d`。也可以使用没有单位的 `0` 和 `-1` 表示没有指定值。
+- throttled_unit_millis Number: 毫秒时间单位
+
+### 示例
+更新与查询匹配的文档
+```http request
+POST my-index-000001/_update_by_query?conflicts=proceed
+{
+  "query": { 
+    "term": {
+      "user.id": "kimchy"
+    }
+  }
+}
+```
+
+通过脚本来更新文档的 `_source`。
+它会把索引 `my-index-000001` 中所有 `user.id` 为 `kimchy` 的文档的 `count` 字段加 1
+```http request
+POST my-index-000001/_update_by_query
+{
+  "script": {
+    "source": "ctx._source.count++",
+    "lang": "painless"
+  },
+  "query": {
+    "term": {
+      "user.id": "kimchy"
+    }
+  }
+}
+```
+
+查询更新并手动分片（`slice`）
+```http request
+POST my-index-000001/_update_by_query
+{
+  "slice": {
+    "id": 0,
+    "max": 2
+  },
+  "script": {
+    "source": "ctx._source['extra'] = 'test'"
+  }
+}
+```
+自动分片 
+```http request
+POST my-index-000001/_update_by_query?refresh&slices=5
+{
+  "script": {
+    "source": "ctx._source['extra'] = 'test'"
+  }
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    - 
+
+
+
+
+
+
+
 
 
 
@@ -2675,3 +3159,21 @@ GET logs/_search
 
 ## Update a document
 [Update a document](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/update-document)
+
+## 更新查询
+[update_by_query](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/update-by-query-api)
+
+## Aggregations
+[聚合](https://www.elastic.co/docs/explore-analyze/query-filter/aggregations)
+
+## Collapse search results
+[Collapse search results](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/collapse-search-results)
+
+## Query and filter context
+[Query and filter context](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl#query-filter-context)
+
+## kNN search
+[kNN search](https://www.elastic.co/docs/solutions/search/vector/knn#approximate-knn)
+
+## Optimistic concurrency control
+[Optimistic concurrency control](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/optimistic-concurrency-control)
