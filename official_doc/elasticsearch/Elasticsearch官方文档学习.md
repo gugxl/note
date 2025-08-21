@@ -2724,7 +2724,7 @@ POST /_update_by_query/{task_id}/_rethrottle
 
 
 #  search
-[search](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search)
+[search](https://www.elastic.co/docs/api/doc/elasticsearch/group/endpoint-search)
 
 
 
@@ -2734,7 +2734,7 @@ POST /_update_by_query/{task_id}/_rethrottle
 # 模版
 [templates](https://www.elastic.co/docs/manage-data/data-store/templates)
 
-# 聚合
+# Aggregations
 [aggregations](https://www.elastic.co/docs/explore-analyze/query-filter/aggregations)
 
 # 节点设置
@@ -3064,8 +3064,6 @@ GET logs/_search
 ## 更新查询
 [update_by_query](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/update-by-query-api)
 
-## Aggregations
-[聚合](https://www.elastic.co/docs/explore-analyze/query-filter/aggregations)
 
 ## Collapse search results
 [Collapse search results](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/collapse-search-results)
