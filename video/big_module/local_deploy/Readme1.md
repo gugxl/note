@@ -95,7 +95,7 @@ docker compose up -d
 http://localhost
 ```
 
-![登录本地RAGFlow.png](image/%E7%99%BB%E5%BD%95%E6%9C%AC%E5%9C%B0RAGFlow.png)
+![登录本地RAGFlow.png](image/登录本地RAGFlow.png)
 
 先注册后登录
 
