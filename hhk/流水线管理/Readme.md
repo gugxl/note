@@ -35,8 +35,9 @@
 
 ![代码编译构建上传配置.png](image/代码编译构建上传配置.png)
 编译命令
-
+```shell
 mvn -s ./service-start/deploy/m2/settings.xml clean install -DskipTests=true  -Dmaven.repo.local=$(CP_WORKSPACE)/.m2
+```
 
 指定了maven的setting.xml 跟代码里面的路径要一致
 说明：
@@ -69,3 +70,19 @@ Dockerfile： 指定了构建Dockerfile文件的地址
 ![应用查看实时日志.png](image/应用查看实时日志.png)
 
 ![监控内存cpu等情况.png](image/监控内存cpu等情况.png)
+
+## 前端流水线
+前端代码库
+![前端代码库.png](image/前端代码库.png)
+
+![前端构建.png](image/前端构建.png)
+编译命令内容
+
+```shell
+yarn install --ignore-platform --registry=https://registry.npmmirror.com
+yarn run build:test
+```
+
+![前端流水线结果.png](image/前端流水线结果.png)
+
+按我理解就是把编译打包的文件传到某个固定的地方
