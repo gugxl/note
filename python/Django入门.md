@@ -113,3 +113,24 @@ python manage.py runserver
 ![添加应用名首页.png](images/添加应用名首页.png)
 
 对比的话感觉这个项目更想是整个微服务系统，总系统进行管理，比如url定义，子系统用来实现对应功能。还有待继续学习
+
+
+## windows 使用 conda 管理环境
+创建环境
+``` bash
+conda create -n djangotutorial2 python=3.11 -y
+```
+初始化 
+```bash
+conda init
+```
+**关闭窗口重新打开**
+
+激活
+``` bash
+conda activate djangotutorial2
+```
+安装其他依赖
+```bash
+pip install django
+```
