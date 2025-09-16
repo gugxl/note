@@ -134,3 +134,5 @@ conda activate djangotutorial2
 ```bash
 pip install django
 ```
+
+[代码库](https://github.com/gugxl/djangotutorial)
