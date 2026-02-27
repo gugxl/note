@@ -1,0 +1,65 @@
+{
+  "skill_name": "article-saver",
+  "version": "1.0.0",
+  "description": "自动整理微信收藏文章为标准化笔记",
+  "author": "user",
+  "created_at": "2026-02-14",
+  
+  "paths": {
+    "notes_root": "notes",
+    "templates_dir": "skills/article-saver/templates",
+    "data_dir": "skills/article-saver/data",
+    "index_file": "skills/article-saver/data/index.json"
+  },
+  
+  "categories": {
+    "AI-ML": {
+      "keywords": ["Transformer", "深度学习", "神经网络", "GPT", "BERT", "机器学习", "AI", "LLM", "大模型", "CV", "NLP"],
+      "path": "notes/01-AI-ML"
+    },
+    "Frontend": {
+      "keywords": ["React", "Vue", "JavaScript", "CSS", "HTML", "前端", "TypeScript", "Angular", "Webpack", "Vite"],
+      "path": "notes/02-Frontend"
+    },
+    "Backend": {
+      "keywords": ["Java", "Python", "Go", "后端", "Spring", "Django", "Flask", "数据库", "MySQL", "Redis", "微服务"],
+      "path": "notes/03-Backend"
+    },
+    "DevOps": {
+      "keywords": ["Docker", "K8s", "Kubernetes", "CI/CD", "Linux", "DevOps", "运维", "Nginx", "Git", "Jenkins"],
+      "path": "notes/04-DevOps"
+    },
+    "Architecture": {
+      "keywords": ["架构", "系统设计", "分布式", "高并发", "性能优化", "设计模式", "DDD", "微服务架构"],
+      "path": "notes/05-Architecture"
+    },
+    "Algorithm": {
+      "keywords": ["算法", "数据结构", "LeetCode", "动态规划", "排序", "图", "树", "递归"],
+      "path": "notes/06-Algorithm"
+    },
+    "Career": {
+      "keywords": ["面试", "职业规划", "简历", "职场", "沟通", "管理", "团队", "成长", "学习"],
+      "path": "notes/07-Career"
+    },
+    "Others": {
+      "keywords": [],
+      "path": "notes/08-Others"
+    }
+  },
+  
+  "template": {
+    "file": "skills/article-saver/templates/note-template.md",
+    "encoding": "utf-8"
+  },
+  
+  "output": {
+    "format": "markdown",
+    "filename_pattern": "{date}-{title}.md",
+    "max_title_length": 50
+  },
+  
+  "auto_classify": true,
+  "extract_code": true,
+  "generate_summary": true,
+  "include_source_link": true
+}

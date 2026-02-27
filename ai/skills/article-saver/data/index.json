@@ -1,0 +1,57 @@
+{
+  "articles": [
+    {
+      "title": "如何用Transformer来做目标检测？一文简述DERT及其变体",
+      "url": "https://mp.weixin.qq.com/s/AFqe8keKi46BlBl8MxkDCg",
+      "author": "张一帆（华南理工大学本科生）",
+      "category": "AI-ML",
+      "tags": ["Transformer", "DETR", "目标检测", "计算机视觉", "Deep Learning"],
+      "file_path": "notes/01-AI-ML/20260214-DETR及其变体综述.md",
+      "created_at": "2026-02-14 16:35:00"
+    },
+    {
+      "title": "让研究人员绞尽脑汁的Transformer位置编码",
+      "url": "https://mp.weixin.qq.com/s/WyDvRy7xudVMUXZzGNW-0A",
+      "author": "苏剑林（追一科技）",
+      "category": "AI-ML",
+      "tags": ["Transformer", "位置编码", "Attention", "BERT", "GPT", "深度学习"],
+      "file_path": "notes/01-AI-ML/20260214-Transformer位置编码综述.md",
+      "created_at": "2026-02-14 16:50:00",
+      "note": "已更新2026年版：notes/01-AI-ML/20260214-Transformer位置编码综述-2026Update.md"
+    },
+    {
+      "title": "让研究人员绞尽脑汁的Transformer位置编码（2026年更新版）",
+      "url": "https://mp.weixin.qq.com/s/WyDvRy7xudVMUXZzGNW-0A",
+      "author": "苏剑林（追一科技）+ 2026年更新",
+      "category": "AI-ML",
+      "tags": ["Transformer", "位置编码", "RoPE", "ALiBi", "LLaMA", "GPT", "长文本", "2026更新"],
+      "file_path": "notes/01-AI-ML/20260214-Transformer位置编码综述-2026Update.md",
+      "created_at": "2026-02-14 17:15:00",
+      "version": "v2.0 (2026 Update)"
+    }
+  ],
+  "last_updated": "2026-02-14 17:15:00",
+  "version": "2.0.0",
+  "stats": {
+    "total_processed": 3,
+    "categories": {
+      "AI-ML": 3
+    },
+    "tags": {
+      "Transformer": 3,
+      "Deep Learning": 3,
+      "位置编码": 2,
+      "DETR": 1,
+      "目标检测": 1,
+      "计算机视觉": 1,
+      "Attention": 1,
+      "BERT": 1,
+      "GPT": 1,
+      "RoPE": 1,
+      "ALiBi": 1,
+      "LLaMA": 1,
+      "长文本": 1,
+      "2026更新": 1
+    }
+  }
+}

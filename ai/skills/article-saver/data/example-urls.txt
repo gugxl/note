@@ -1,0 +1,9 @@
+# 示例URL列表
+# 每行一个URL，可以添加标题（用空格分隔）
+
+# AI/ML类文章
+https://mp.weixin.qq.com/s/SGROkMleCiV6iPI7kNlXOA Visual Transformer综述
+https://mp.weixin.qq.com/s/7MjBJlczIxElTDrMh7yriQ Transformer入门到入土
+https://mp.weixin.qq.com/s/_ejGvrYENb3kGzmYlKAVrw 图解Transformer完整版
+
+# 可以在这里添加更多URL...
