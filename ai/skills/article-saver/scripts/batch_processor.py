@@ -2,34 +2,18 @@
 # -*- coding: utf-8 -*-
 """
 Article Saver Skill - 批量处理脚本
-自动抓取微信文章并整理为标准化笔记
-支持图片下载和本地化
+管理本地文章索引，并为文章笔记生成标准化骨架。
 """
 
 import json
-import re
 import os
-import sys
 import hashlib
-import requests
-from datetime import datetime
-from pathlib import Path
-from urllib.parse import urlparse, urljoin
-from typing import List, Dict, Optional, Union
-# -*- coding: utf-8 -*-
-"""
-Article Saver Skill - 批量处理脚本
-自动抓取微信文章并整理为标准化笔记
-"""
-
-import json
 import re
-import os
+import requests
 import sys
 from datetime import datetime
-from pathlib import Path
 from urllib.parse import urlparse
-from typing import List, Dict, Optional, Union
+from typing import Dict, List, Optional
 
 # 配置
 CONFIG_FILE = "skills/article-saver/config.json"
@@ -250,8 +234,7 @@ class ArticleSaver:
                 print(f"  [已存在] {article['file_path']}")
                 return {"status": "exists", "info": article}
         
-        # 获取文章内容（这里使用模拟数据，实际应调用webfetch）
-        # 实际使用时，需要手动输入或从其他方式获取
+        # 当前脚本不会自行抓取正文，只生成待补全文档所需的基础元数据。
         article_info = {
             "url": url,
             "title": title or "待获取标题",
@@ -331,44 +314,6 @@ class ArticleSaver:
         self.save_index()
         
         print(f"  已保存: {file_path}")
-        return file_path
-        """保存文章为笔记"""
-        # 确保title不为None
-        title = article_info.get("title") or "Untitled"
-        article_info["title"] = title
-        
-        # 确定保存路径
-        category = article_info.get("category", "Others")
-        category_path = self.config["categories"][category]["path"]
-        
-        # 创建目录
-        os.makedirs(category_path, exist_ok=True)
-        
-        # 生成文件名
-        filename = self.generate_filename(title)
-        file_path = os.path.join(category_path, filename)
-        
-        # 创建笔记
-        note_content = self.create_note(article_info)
-        
-        # 保存文件
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(note_content)
-        
-        # 更新索引
-        index_entry = {
-            "title": article_info["title"],
-            "url": article_info["url"],
-            "author": article_info["author"],
-            "category": category,
-            "tags": article_info["tags"],
-            "file_path": file_path,
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-        self.index["articles"].append(index_entry)
-        self.save_index()
-        
-        print(f"  [已保存] {file_path}")
         return file_path
     
     def batch_process(self, urls: List[str], titles: Optional[List[str]] = None):
